@@ -572,9 +572,25 @@ function showAuthMsg(id, msg, isErr) {
 async function doLogin() {
   var email = document.getElementById("login-email").value.trim();
   var pass  = document.getElementById("login-password").value;
-  if (!email || !pass) { showAuthMsg("login-error","Preencha email e password.", true); return; }
-  var { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) { showAuthMsg("login-error", error.message, true); return; }
+  var btn   = document.querySelector("#form-login .btn-primary");
+
+  if (!email || !pass) { showAuthMsg("login-error", "Por favor preencha o email e a password.", true); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> A entrar...';
+
+  var { error } = await sb.auth.signInWithPassword({ email: email, password: pass });
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-login"></i> Entrar';
+
+  if (error) {
+    var msg = error.message;
+    if (msg.includes("Invalid login")) msg = "Email ou password incorrectos.";
+    if (msg.includes("Email not confirmed")) msg = "Ainda não confirmou o seu email. Verifique a sua caixa de entrada.";
+    showAuthMsg("login-error", msg, true);
+    return;
+  }
   closeAuth();
   showToast("Bem-vindo de volta!");
 }
@@ -583,17 +599,47 @@ async function doRegister() {
   var name  = document.getElementById("reg-name").value.trim();
   var email = document.getElementById("reg-email").value.trim();
   var pass  = document.getElementById("reg-password").value;
-  if (!name || !email || !pass) { showAuthMsg("reg-error","Preencha todos os campos.", true); return; }
-  if (pass.length < 6) { showAuthMsg("reg-error","A password deve ter pelo menos 6 caracteres.", true); return; }
+  var btn   = document.querySelector("#form-register .btn-primary");
+
+  if (!name)  { showAuthMsg("reg-error", "Por favor insira o seu nome.", true); return; }
+  if (!email) { showAuthMsg("reg-error", "Por favor insira o seu email.", true); return; }
+  if (!pass)  { showAuthMsg("reg-error", "Por favor escolha uma password.", true); return; }
+  if (pass.length < 6) { showAuthMsg("reg-error", "A password deve ter pelo menos 6 caracteres.", true); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> A criar conta...';
+
   var { data, error } = await sb.auth.signUp({
-    email, password: pass,
+    email: email,
+    password: pass,
     options: { data: { full_name: name, role: selectedRole } }
   });
-  if (error) { showAuthMsg("reg-error", error.message, true); return; }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-user-plus"></i> Criar conta';
+
+  if (error) {
+    var msg = error.message;
+    if (msg.includes("already registered")) msg = "Este email já tem uma conta. Tente entrar.";
+    if (msg.includes("invalid")) msg = "Email inválido. Verifique e tente novamente.";
+    showAuthMsg("reg-error", msg, true);
+    return;
+  }
+
   if (data.user) {
     await sb.from("profiles").upsert({ id: data.user.id, role: selectedRole, full_name: name });
   }
-  showAuthMsg("reg-success", "Conta criada! Verifique o seu email para confirmar o registo.", false);
+
+  // Hide the form, show success
+  document.getElementById("reg-error").style.display = "none";
+  document.querySelector("#form-register .role-selector").style.display = "none";
+  document.querySelectorAll("#form-register .form-group").forEach(function(el){ el.style.display="none"; });
+  btn.style.display = "none";
+  document.querySelector("#form-register .modal-footer").style.display = "none";
+
+  showAuthMsg("reg-success",
+    "✓ Conta criada com sucesso! Enviámos um email de confirmação para " + email + ". Clique no link para activar a sua conta.",
+    false);
 }
 
 async function doLogout() {
