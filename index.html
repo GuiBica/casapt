@@ -558,21 +558,39 @@ const PT_TYPE_MAP = {
 
 // ── AUTH STATE ─────────────────────────────────────────────────────────────
 sb.auth.onAuthStateChange(async function(event, session) {
-  if (session && session.user) {
-    currentUser = session.user;
-    var { data: prof } = await sb.from("profiles").select("*").eq("id", currentUser.id).single();
-    currentProfile = prof;
-    updateNav();
-    if (currentProfile && currentProfile.role === "tenant") await loadFavourites();
-    if (event === "SIGNED_IN") {
-      closeAuth();
-      var firstName = (currentProfile && currentProfile.full_name) ? currentProfile.full_name.split(" ")[0] : "";
-      showToast("Bem-vindo" + (firstName ? ", " + firstName : "") + "!");
+  try {
+    if (session && session.user) {
+      currentUser = session.user;
+      try {
+        var profRes = await fetch(
+          SB_URL + "/rest/v1/profiles?select=*&id=eq." + currentUser.id,
+          { headers: {
+            "apikey": SB_ANON,
+            "Authorization": "Bearer " + session.access_token,
+            "Accept": "application/json"
+          }}
+        );
+        var profData = await profRes.json();
+        currentProfile = (Array.isArray(profData) && profData.length > 0) ? profData[0] : null;
+      } catch(profErr) {
+        console.warn("Profile fetch failed:", profErr);
+        currentProfile = null;
+      }
+      updateNav();
+      if (currentProfile && currentProfile.role === "tenant") {
+        try { await loadFavourites(); } catch(e) {}
+      }
+      if (event === "SIGNED_IN") {
+        closeAuth();
+        var firstName = (currentProfile && currentProfile.full_name) ? currentProfile.full_name.split(" ")[0] : "";
+        showToast("Bem-vindo" + (firstName ? ", " + firstName : "") + "!");
+      }
+    } else {
+      currentUser = null; currentProfile = null; favouriteIds = new Set();
+      updateNav();
     }
-    if (event === "PASSWORD_RECOVERY") { openAuth("login"); }
-  } else {
-    currentUser = null; currentProfile = null; favouriteIds = new Set();
-    updateNav();
+  } catch(e) {
+    console.error("Auth state change error:", e);
   }
 });
 
@@ -1269,7 +1287,8 @@ function showToast(msg, err) {
   setTimeout(function(){t.classList.remove("show");},3500);
 }
 
-fetchListings();
+// Always fetch on load, independent of auth
+try { fetchListings(); } catch(e) { console.error("Initial fetch failed:", e); }
 </script>
 </body>
 </html>
