@@ -22,7 +22,20 @@
     .logo em { font-style:normal; color:var(--accent); }
     .nav-actions { display:flex; gap:8px; align-items:center; }
     .nav-user { display:flex; align-items:center; gap:10px; font-size:14px; }
-    .nav-avatar { width:32px; height:32px; border-radius:50%; background:var(--brand-light); color:var(--brand); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; cursor:pointer; border:1px solid var(--border); }
+    .nav-avatar { width:34px; height:34px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; cursor:pointer; border:2px solid var(--brand-mid); transition:opacity 0.15s; }
+    .nav-avatar:hover { opacity:0.85; }
+    .nav-avatar-wrap { position:relative; }
+    .nav-dropdown { position:absolute; top:calc(100% + 10px); right:0; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:0 8px 32px rgba(0,0,0,0.12); min-width:220px; z-index:200; overflow:hidden; }
+    .nav-dd-header { padding:14px 16px; background:var(--surface); }
+    .nav-dd-name { font-size:14px; font-weight:600; margin-bottom:2px; }
+    .nav-dd-email { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .nav-dd-role { font-size:11px; font-weight:600; color:var(--brand); text-transform:uppercase; letter-spacing:0.05em; background:var(--brand-light); display:inline-block; padding:2px 8px; border-radius:20px; }
+    .nav-dd-divider { border:none; border-top:1px solid var(--border); }
+    .nav-dd-item { display:flex; align-items:center; gap:10px; padding:11px 16px; font-size:14px; cursor:pointer; color:var(--text); transition:background 0.1s; }
+    .nav-dd-item:hover { background:var(--surface); }
+    .nav-dd-item i { font-size:17px; color:var(--muted); }
+    .nav-dd-item.danger { color:#dc2626; }
+    .nav-dd-item.danger i { color:#dc2626; }
 
     /* BUTTONS */
     .btn { padding:8px 16px; border-radius:var(--radius); font-size:14px; cursor:pointer; font-family:inherit; font-weight:500; border:1px solid var(--border); background:transparent; color:var(--text); transition:all 0.15s; display:inline-flex; align-items:center; gap:6px; }
@@ -215,6 +228,28 @@
     .toggle-item input[type="checkbox"] { width:16px; height:16px; accent-color:var(--brand); cursor:pointer; }
     .form-actions { display:flex; gap:12px; justify-content:flex-end; padding-top:8px; }
 
+    /* IMAGE UPLOAD */
+    .upload-area { border:2px dashed var(--border); border-radius:var(--radius-lg); padding:32px; text-align:center; cursor:pointer; transition:all 0.15s; }
+    .upload-area:hover, .upload-area.drag { border-color:var(--brand); background:var(--brand-light); }
+    .img-preview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-top:14px; }
+    .img-thumb { position:relative; aspect-ratio:4/3; border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); }
+    .img-thumb img { width:100%; height:100%; object-fit:cover; }
+    .img-thumb-remove { position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; }
+    .img-thumb-remove:hover { background:rgba(200,0,0,0.8); }
+    /* CARD IMAGE SLIDER */
+    .card-img { position:relative; overflow:hidden; }
+    .card-img img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+    /* DETAIL IMAGE GALLERY */
+    .detail-gallery { position:relative; height:360px; background:var(--brand-light); border-radius:var(--radius-lg); margin:16px 24px 0; max-width:960px; margin-left:auto; margin-right:auto; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .detail-gallery img { width:100%; height:100%; object-fit:cover; }
+    .detail-gallery .gallery-placeholder { font-size:72px; color:var(--brand); }
+    .gallery-nav { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.9); border:none; border-radius:50%; width:38px; height:38px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+    .gallery-nav.prev { left:12px; }
+    .gallery-nav.next { right:12px; }
+    .gallery-dots { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+    .gallery-dot { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.6); cursor:pointer; transition:background 0.15s; }
+    .gallery-dot.active { background:#fff; }
+
     /* EMPTY + LOADING */
     .empty-state { text-align:center; padding:60px 24px; color:var(--muted); }
     .empty-state i { font-size:48px; display:block; margin-bottom:14px; color:#d1d5db; }
@@ -387,7 +422,7 @@
 <!-- DETAIL PAGE -->
 <div id="page-detail" class="page">
   <div class="detail-back"><button class="btn btn-sm btn-outline" onclick="showPage('listings')"><i class="ti ti-arrow-left"></i> Voltar</button></div>
-  <div class="detail-hero"><i class="ti ti-home" id="detail-icon"></i></div>
+  <div class="detail-gallery" id="detail-gallery"><div class="gallery-placeholder"><i class="ti ti-home" id="detail-icon"></i></div></div>
   <div class="detail-body">
     <div class="detail-main">
       <div class="detail-title" id="detail-title"></div>
@@ -475,6 +510,16 @@
         <div class="fg"><label>Disponível a partir de</label><input type="date" id="f-available"></div>
       </div>
     </div>
+    <div class="form-section">
+      <div class="section-title">Fotografias <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:12px">(máx. 6 fotos · JPG, PNG, WEBP · 5MB cada)</span></div>
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('img-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+        <i class="ti ti-photo-up" style="font-size:36px;color:var(--brand);display:block;margin-bottom:8px"></i>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px">Clique ou arraste fotos aqui</div>
+        <div style="font-size:13px;color:var(--muted)">As fotos aparecem na página do anúncio</div>
+        <input type="file" id="img-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none" onchange="handleImageSelect(this.files)">
+      </div>
+      <div id="img-preview" class="img-preview-grid"></div>
+    </div>
     <div class="form-actions">
       <button class="btn" onclick="showPage('listings')">Cancelar</button>
       <button class="btn btn-primary" onclick="submitListing()"><i class="ti ti-send"></i> Publicar anúncio</button>
@@ -520,6 +565,12 @@ sb.auth.onAuthStateChange(async function(event, session) {
     currentProfile = prof;
     updateNav();
     if (currentProfile && currentProfile.role === "tenant") await loadFavourites();
+    if (event === "SIGNED_IN") {
+      closeAuth();
+      var firstName = (currentProfile && currentProfile.full_name) ? currentProfile.full_name.split(" ")[0] : "";
+      showToast("Bem-vindo" + (firstName ? ", " + firstName : "") + "!");
+    }
+    if (event === "PASSWORD_RECOVERY") { openAuth("login"); }
   } else {
     currentUser = null; currentProfile = null; favouriteIds = new Set();
     updateNav();
@@ -528,20 +579,58 @@ sb.auth.onAuthStateChange(async function(event, session) {
 
 function updateNav() {
   var el = document.getElementById("nav-actions");
+  var existingDd = document.getElementById("nav-dropdown");
+  if (existingDd) existingDd.remove();
   if (currentUser && currentProfile) {
     var initials = (currentProfile.full_name || currentUser.email || "?").charAt(0).toUpperCase();
+    var isLandlord = currentProfile.role === "landlord";
     el.innerHTML =
-      '<button class="btn btn-sm" onclick="showPage(\'listings\')"><i class="ti ti-search"></i> Anúncios</button>' +
-      (currentProfile.role === "landlord" ? '<button class="btn btn-sm btn-primary" onclick="showPage(\'post\')"><i class="ti ti-plus"></i> Anunciar</button>' : '') +
-      '<div class="nav-avatar" onclick="showPage(\'dashboard\')" title="Dashboard">' + initials + '</div>' +
-      '<button class="btn btn-sm btn-ghost" onclick="doLogout()"><i class="ti ti-logout"></i></button>';
+      '<button class="btn btn-sm" onclick="showPage('listings')"><i class="ti ti-search"></i> An\u00fancios</button>' +
+      (isLandlord ? '<button class="btn btn-sm btn-primary" onclick="showPage('post')"><i class="ti ti-plus"></i> Anunciar</button>' : '') +
+      '<div class="nav-avatar-wrap" id="nav-avatar-wrap"><div class="nav-avatar" id="nav-avatar-btn" title="Menu">' + initials + '</div></div>';
+    setTimeout(function(){
+      var btn = document.getElementById("nav-avatar-btn");
+      if (btn) btn.addEventListener("click", toggleDropdown);
+    }, 0);
   } else {
     el.innerHTML =
-      '<button class="btn btn-sm" onclick="showPage(\'listings\')"><i class="ti ti-search"></i> Anúncios</button>' +
-      '<button class="btn btn-sm btn-outline" onclick="openAuth(\'login\')">Entrar</button>' +
-      '<button class="btn btn-sm btn-primary" onclick="openAuth(\'register\')">Registar</button>';
+      '<button class="btn btn-sm" onclick="showPage('listings')"><i class="ti ti-search"></i> An\u00fancios</button>' +
+      '<button class="btn btn-sm btn-outline" onclick="openAuth('login')">Entrar</button>' +
+      '<button class="btn btn-sm btn-primary" onclick="openAuth('register')">Registar</button>';
   }
 }
+
+function toggleDropdown() {
+  var existing = document.getElementById("nav-dropdown");
+  if (existing) { existing.remove(); return; }
+  var wrap = document.getElementById("nav-avatar-wrap");
+  if (!wrap) return;
+  var isLandlord = currentProfile && currentProfile.role === "landlord";
+  var name = (currentProfile && currentProfile.full_name) || "";
+  var email = (currentUser && currentUser.email) || "";
+  var dd = document.createElement("div");
+  dd.id = "nav-dropdown";
+  dd.className = "nav-dropdown";
+  dd.innerHTML =
+    '<div class="nav-dd-header">' +
+      '<div class="nav-dd-name">' + esc(name) + '</div>' +
+      '<div class="nav-dd-email">' + esc(email) + '</div>' +
+      '<div class="nav-dd-role">' + (isLandlord ? "Propriet\u00e1rio" : "Arrendat\u00e1rio") + '</div>' +
+    '</div>' +
+    '<div class="nav-dd-divider"></div>' +
+    '<div class="nav-dd-item" onclick="closeDropdown();showPage('dashboard')"><i class="ti ti-layout-dashboard"></i> Dashboard</div>' +
+    (isLandlord ? '<div class="nav-dd-item" onclick="closeDropdown();showPage('post')"><i class="ti ti-plus"></i> Publicar an\u00fancio</div>' : '') +
+    '<div class="nav-dd-divider"></div>' +
+    '<div class="nav-dd-item danger" onclick="closeDropdown();doLogout()"><i class="ti ti-logout"></i> Terminar sess\u00e3o</div>';
+  wrap.appendChild(dd);
+  setTimeout(function(){
+    document.addEventListener("click", function handler(e){
+      if (!e.target.closest("#nav-avatar-wrap")) { closeDropdown(); document.removeEventListener("click", handler); }
+    });
+  }, 10);
+}
+
+function closeDropdown() { var d = document.getElementById("nav-dropdown"); if (d) d.remove(); }
 
 // ── AUTH MODAL ─────────────────────────────────────────────────────────────
 function openAuth(tab) {
@@ -731,7 +820,23 @@ async function openDetail(id) {
   var price = Number(l.price).toLocaleString("pt-PT");
   var label = l.typology || PT[l.property_type] || "";
 
-  document.getElementById("detail-icon").className = "ti " + icon;
+  // Gallery
+  var gallery = document.getElementById("detail-gallery");
+  if (l.images && l.images.length > 0) {
+    var imgs = l.images;
+    var gIdx = 0;
+    function renderGallery() {
+      var dotsHtml = imgs.length > 1 ? '<div class="gallery-dots">' + imgs.map(function(_,i){ return '<div class="gallery-dot'+(i===gIdx?" active":"")+'" onclick="gIdx='+i+';renderGallery()"></div>'; }).join("") + '</div>' : "";
+      var navHtml = imgs.length > 1
+        ? '<button class="gallery-nav prev" onclick="gIdx=(gIdx-1+'+imgs.length+')%'+imgs.length+';renderGallery()"><i class="ti ti-chevron-left"></i></button><button class="gallery-nav next" onclick="gIdx=(gIdx+1)%'+imgs.length+';renderGallery()"><i class="ti ti-chevron-right"></i></button>'
+        : "";
+      gallery.innerHTML = '<img src="'+imgs[gIdx]+'" alt="Foto do imóvel" onerror="this.parentNode.innerHTML='<div class=gallery-placeholder><i class=ti.ti-home></i></div>'">' + navHtml + dotsHtml;
+    }
+    renderGallery();
+  } else {
+    gallery.innerHTML = '<div class="gallery-placeholder"><i class="ti ' + icon + '"></i></div>';
+  }
+  document.getElementById("detail-icon") && (document.getElementById("detail-icon").className = "ti " + icon);
   document.getElementById("detail-title").textContent = l.title;
   document.getElementById("detail-loc-text").textContent = [l.address, l.city, l.postal_code].filter(Boolean).join(", ");
 
@@ -1014,6 +1119,59 @@ function showPage(name) {
   if (name==="post" && !currentUser) { showPage("listings"); openAuth("login"); }
 }
 
+// ── IMAGE UPLOAD ───────────────────────────────────────────────────────────
+var pendingImages = []; // {file, preview}
+
+function handleImageSelect(files) {
+  var remaining = 6 - pendingImages.length;
+  var toAdd = Array.from(files).slice(0, remaining);
+  toAdd.forEach(function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      pendingImages.push({ file: file, preview: e.target.result });
+      renderImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById("img-input").value = "";
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById("upload-area").classList.remove("drag");
+  handleImageSelect(e.dataTransfer.files);
+}
+
+function removeImage(idx) {
+  pendingImages.splice(idx, 1);
+  renderImagePreviews();
+}
+
+function renderImagePreviews() {
+  var grid = document.getElementById("img-preview");
+  if (!grid) return;
+  grid.innerHTML = pendingImages.map(function(img, i) {
+    return '<div class="img-thumb"><img src="'+img.preview+'"><button class="img-thumb-remove" onclick="removeImage('+i+')"><i class="ti ti-x"></i></button></div>';
+  }).join("");
+  var area = document.getElementById("upload-area");
+  if (area) area.style.display = pendingImages.length >= 6 ? "none" : "";
+}
+
+async function uploadImages(listingId) {
+  var urls = [];
+  for (var i = 0; i < pendingImages.length; i++) {
+    var img = pendingImages[i];
+    var ext = img.file.name.split(".").pop();
+    var path = currentUser.id + "/" + listingId + "/" + Date.now() + "-" + i + "." + ext;
+    var { data, error } = await sb.storage.from("listing-images").upload(path, img.file, { upsert: true });
+    if (!error) {
+      var { data: urlData } = sb.storage.from("listing-images").getPublicUrl(path);
+      urls.push(urlData.publicUrl);
+    }
+  }
+  return urls;
+}
+
 // ── SUBMIT LISTING ─────────────────────────────────────────────────────────
 async function submitListing() {
   if (!currentUser) { openAuth("login"); return; }
@@ -1036,10 +1194,40 @@ async function submitListing() {
     landlord_name: currentProfile ? currentProfile.full_name : null,
     landlord_email: currentUser.email
   };
-  var { error } = await sb.from("listings").insert(body);
-  if (error) { showToast("Erro ao publicar.", true); console.error(error); return; }
-  showToast("Anúncio publicado!");
-  setTimeout(function(){ showPage("dashboard"); }, 1000);
+  var submitBtn = document.querySelector("#page-post .btn-primary");
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="ti ti-loader-2"></i> A publicar...';
+
+  var { data: inserted, error } = await sb.from("listings").insert(body).select().single();
+  if (error) {
+    showToast("Erro ao publicar.", true);
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="ti ti-send"></i> Publicar anúncio';
+    return;
+  }
+
+  // Upload images if any
+  if (pendingImages.length > 0 && inserted) {
+    submitBtn.innerHTML = '<i class="ti ti-loader-2"></i> A carregar fotos...';
+    var imageUrls = await uploadImages(inserted.id);
+    if (imageUrls.length > 0) {
+      await sb.from("listings").update({ images: imageUrls }).eq("id", inserted.id);
+    }
+  }
+
+  pendingImages = [];
+  showToast("Anúncio publicado com sucesso!");
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = '<i class="ti ti-send"></i> Publicar anúncio';
+  // Reset form
+  ["f-title","f-typology","f-area","f-desc","f-address","f-city","f-postal","f-price","f-available"].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value="";
+  });
+  ["f-furnished","f-pets","f-parking","f-elevator","f-balcony"].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.checked=false;
+  });
+  renderImagePreviews();
+  setTimeout(function(){ showPage("dashboard"); }, 1200);
 }
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
