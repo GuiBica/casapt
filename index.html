@@ -737,19 +737,47 @@ async function doLogout() {
 }
 
 // ── FETCH LISTINGS ─────────────────────────────────────────────────────────
-async function fetchListings() {
+async function fetchListings(attempt) {
+  attempt = attempt || 1;
+  var container = document.getElementById("listings-container");
+  var statsBar = document.getElementById("stats-bar");
+
+  if (attempt === 1) {
+    container.innerHTML = '<div class="loading-state"><i class="ti ti-loader-2" style="font-size:32px;display:block;margin-bottom:12px"></i>A carregar anúncios...</div>';
+    statsBar.innerHTML = '<span>A carregar...</span>';
+  } else {
+    container.innerHTML = '<div class="loading-state"><i class="ti ti-loader-2" style="font-size:32px;display:block;margin-bottom:12px"></i>A tentar novamente (' + attempt + '/3)...</div>';
+  }
+
   try {
+    var controller = new AbortController();
+    var timeout = setTimeout(function(){ controller.abort(); }, 8000);
+
     var res = await fetch(SB_URL + "/rest/v1/listings?order=created_at.desc", {
-      headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON }
+      headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON },
+      signal: controller.signal
     });
+    clearTimeout(timeout);
+
     if (!res.ok) throw new Error("HTTP " + res.status);
-    all = await res.json();
-    if (!Array.isArray(all)) all = [];
+    var data = await res.json();
+    all = Array.isArray(data) ? data : [];
     renderListings(all);
+
   } catch(e) {
-    console.error("fetchListings error:", e);
-    document.getElementById("listings-container").innerHTML =
-      '<div class="empty-state"><i class="ti ti-wifi-off"></i><h3>Erro ao carregar</h3><p>Não foi possível ligar à base de dados.</p></div>';
+    console.error("fetchListings attempt " + attempt + " failed:", e);
+    if (attempt < 3) {
+      setTimeout(function(){ fetchListings(attempt + 1); }, 2000);
+    } else {
+      container.innerHTML =
+        '<div class="empty-state">' +
+          '<i class="ti ti-wifi-off"></i>' +
+          '<h3>Não foi possível carregar</h3>' +
+          '<p>O servidor pode estar a acordar. Tente novamente.</p>' +
+          '<button class="btn btn-primary" style="margin-top:16px" onclick="fetchListings(1)"><i class="ti ti-refresh"></i> Tentar novamente</button>' +
+        '</div>';
+      statsBar.innerHTML = '<span>Erro ao carregar</span>';
+    }
   }
 }
 
