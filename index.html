@@ -503,17 +503,50 @@ window.addEventListener("DOMContentLoaded", function() {
 
 async function handleSession(session) {
   currentUser = session.user;
-  // fetch profile via REST to avoid SDK issues
   try {
     var r = await fetch(SB_URL + "/rest/v1/profiles?select=*&id=eq." + currentUser.id, {
-      headers: {
-        "apikey": SB_ANON,
-        "Authorization": "Bearer " + session.access_token
-      }
+      headers: { "apikey": SB_ANON, "Authorization": "Bearer " + session.access_token }
     });
     var rows = await r.json();
     currentProfile = (Array.isArray(rows) && rows.length > 0) ? rows[0] : null;
+
+    // If no profile yet, check if we have pending data from registration
+    if (!currentProfile) {
+      var pending = localStorage.getItem("pending_profile");
+      if (pending) {
+        try {
+          var pd = JSON.parse(pending);
+          await fetch(SB_URL+"/rest/v1/profiles", {
+            method:"POST",
+            headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+session.access_token, "Content-Type":"application/json", "Prefer":"return=minimal" },
+            body: JSON.stringify({ id: currentUser.id, role: pd.role, full_name: pd.full_name })
+          });
+          localStorage.removeItem("pending_profile");
+          // re-fetch profile
+          var r2 = await fetch(SB_URL + "/rest/v1/profiles?select=*&id=eq." + currentUser.id, {
+            headers: { "apikey": SB_ANON, "Authorization": "Bearer " + session.access_token }
+          });
+          var rows2 = await r2.json();
+          currentProfile = (Array.isArray(rows2) && rows2.length > 0) ? rows2[0] : null;
+        } catch(pe) { console.warn("Profile create failed:", pe); }
+      }
+      // Fallback: create a basic profile from user metadata
+      if (!currentProfile && currentUser.user_metadata) {
+        var meta = currentUser.user_metadata;
+        await fetch(SB_URL+"/rest/v1/profiles", {
+          method:"POST",
+          headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+session.access_token, "Content-Type":"application/json", "Prefer":"return=minimal" },
+          body: JSON.stringify({ id: currentUser.id, role: meta.role||"tenant", full_name: meta.full_name||"" })
+        });
+        var r3 = await fetch(SB_URL + "/rest/v1/profiles?select=*&id=eq." + currentUser.id, {
+          headers: { "apikey": SB_ANON, "Authorization": "Bearer " + session.access_token }
+        });
+        var rows3 = await r3.json();
+        currentProfile = (Array.isArray(rows3) && rows3.length > 0) ? rows3[0] : null;
+      }
+    }
   } catch(e) {
+    console.warn("handleSession error:", e);
     currentProfile = null;
   }
   updateNav();
@@ -808,27 +841,49 @@ async function doRegister() {
   var name  = document.getElementById("reg-name").value.trim();
   var email = document.getElementById("reg-email").value.trim();
   var pass  = document.getElementById("reg-password").value;
-  if (!name)       { showMsg("reg-msg","Insira o seu nome.",true); return; }
-  if (!email)      { showMsg("reg-msg","Insira o seu email.",true); return; }
+  if (!name)        { showMsg("reg-msg","Insira o seu nome.",true); return; }
+  if (!email)       { showMsg("reg-msg","Insira o seu email.",true); return; }
   if (pass.length<6){ showMsg("reg-msg","Password com mínimo 6 caracteres.",true); return; }
+
   var btn = document.getElementById("reg-btn");
-  btn.disabled=true; btn.textContent="A criar conta...";
-  var r = await sb.auth.signUp({ email:email, password:pass, options:{ data:{ full_name:name, role:selectedRole } } });
-  btn.disabled=false; btn.innerHTML='<i class="ti ti-user-plus"></i> Criar conta';
-  if (r.error) {
-    var m = r.error.message;
-    if (m.includes("already")) m = "Este email já tem conta. Tente entrar.";
-    showMsg("reg-msg", m, true); return;
-  }
-  if (r.data && r.data.user) {
-    await fetch(SB_URL+"/rest/v1/profiles", {
-      method:"POST",
-      headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+r.data.session.access_token, "Content-Type":"application/json", "Prefer":"return=minimal" },
-      body: JSON.stringify({ id:r.data.user.id, role:selectedRole, full_name:name })
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> A criar conta...';
+
+  try {
+    var r = await sb.auth.signUp({
+      email: email,
+      password: pass,
+      options: { data: { full_name: name, role: selectedRole } }
     });
+
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-user-plus"></i> Criar conta';
+
+    if (r.error) {
+      var m = r.error.message;
+      if (m.includes("already")) m = "Este email já tem conta. Tente entrar.";
+      showMsg("reg-msg", m, true); return;
+    }
+
+    // Store role in pending localStorage so we can save profile after email confirmation
+    if (r.data && r.data.user) {
+      localStorage.setItem("pending_profile", JSON.stringify({ id: r.data.user.id, role: selectedRole, full_name: name }));
+      // If session exists (email confirm disabled), save profile now
+      if (r.data.session) {
+        await fetch(SB_URL+"/rest/v1/profiles", {
+          method:"POST",
+          headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+r.data.session.access_token, "Content-Type":"application/json", "Prefer":"return=minimal" },
+          body: JSON.stringify({ id: r.data.user.id, role: selectedRole, full_name: name })
+        });
+      }
+    }
+
+    document.getElementById("reg-form-body").style.display = "none";
+    showMsg("reg-msg", "✓ Conta criada! Verifique o seu email (" + email + ") e clique no link de confirmação para activar a conta.", false);
+
+  } catch(e) {
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-user-plus"></i> Criar conta';
+    showMsg("reg-msg", "Erro inesperado. Tente novamente.", true);
+    console.error("Register error:", e);
   }
-  document.getElementById("reg-form-body").style.display = "none";
-  showMsg("reg-msg", "✓ Conta criada! Verifique o seu email (" + email + ") e clique no link de confirmação.", false);
 }
 
 async function doLogout() {
