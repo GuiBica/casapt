@@ -1446,7 +1446,7 @@ async function loadSentMessages() {
   var listings = await r2.json(); listings = Array.isArray(listings)?listings:[];
 
   // Get last message per listing
-  var r3 = await fetch(SB_URL+"/rest/v1/messages?select=*&sender_id=eq."+currentUser.id+"&listing_id=in.("+listingIds.join(",")+"&order=created_at.desc", { headers:h });
+  var r3 = await fetch(SB_URL+"/rest/v1/messages?select=*&sender_id=eq."+currentUser.id+"&listing_id=in.("+listingIds.join(",")+")&order=created_at.desc", { headers:h });
   var allMsgs = await r3.json(); allMsgs = Array.isArray(allMsgs)?allMsgs:[];
 
   el.innerHTML = '<div class="thread-list">' +
