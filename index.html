@@ -20,7 +20,8 @@
     .logo em { font-style:normal; color:var(--accent); }
     .nav-actions { display:flex; gap:8px; align-items:center; }
     .nav-avatar-wrap { position:relative; }
-    .nav-avatar { width:34px; height:34px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; cursor:pointer; }
+    .nav-avatar { width:34px; height:34px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; cursor:pointer; overflow:hidden; border:2px solid var(--brand-mid); }
+    .nav-avatar img { width:100%; height:100%; object-fit:cover; }
     .nav-dropdown { position:absolute; top:calc(100% + 10px); right:0; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:0 8px 32px rgba(0,0,0,0.12); min-width:220px; z-index:200; overflow:hidden; }
     .nav-dd-header { padding:14px 16px; background:var(--surface); }
     .nav-dd-name { font-size:14px; font-weight:600; margin-bottom:2px; }
@@ -208,6 +209,42 @@
     .empty-state h3 { font-size:18px; font-weight:600; color:var(--text); margin-bottom:8px; }
     .empty-state p { margin-bottom:20px; }
     .loading-state { text-align:center; padding:60px; color:var(--muted); }
+    /* PROFILE MODAL */
+    .profile-modal { background:var(--bg); border-radius:var(--radius-lg); padding:28px; width:100%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .profile-modal h2 { font-size:20px; font-weight:700; margin-bottom:20px; }
+    .avatar-upload { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+    .avatar-lg { width:72px; height:72px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:700; overflow:hidden; flex-shrink:0; border:2px solid var(--brand-mid); }
+    .avatar-lg img { width:100%; height:100%; object-fit:cover; }
+    .avatar-upload-btn { font-size:13px; color:var(--brand); cursor:pointer; font-weight:500; border:1px solid var(--brand); border-radius:var(--radius); padding:6px 12px; display:inline-block; }
+    .avatar-upload-btn:hover { background:var(--brand-light); }
+    /* MESSAGE THREAD */
+    .thread-list { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+    .thread-item { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; cursor:pointer; transition:border-color 0.15s; }
+    .thread-item:hover { border-color:var(--brand); }
+    .thread-item.unread { border-left:3px solid var(--brand); }
+    .thread-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+    .thread-name { font-size:14px; font-weight:600; }
+    .thread-listing { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .thread-preview { font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .thread-date { font-size:11px; color:var(--muted); white-space:nowrap; }
+    .thread-unread-dot { width:8px; height:8px; border-radius:50%; background:var(--brand); flex-shrink:0; margin-top:4px; }
+    /* CONVERSATION */
+    .conversation-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+    .conv-back { cursor:pointer; color:var(--brand); font-size:18px; }
+    .conv-info h3 { font-size:15px; font-weight:600; }
+    .conv-info p { font-size:12px; color:var(--muted); }
+    .conv-messages { display:flex; flex-direction:column; gap:12px; margin-bottom:20px; max-height:400px; overflow-y:auto; padding:4px; }
+    .conv-msg { max-width:75%; }
+    .conv-msg.mine { align-self:flex-end; }
+    .conv-msg.theirs { align-self:flex-start; }
+    .conv-bubble { padding:10px 14px; border-radius:var(--radius-lg); font-size:14px; line-height:1.5; }
+    .conv-msg.mine .conv-bubble { background:var(--brand); color:#fff; border-bottom-right-radius:4px; }
+    .conv-msg.theirs .conv-bubble { background:var(--surface); border:1px solid var(--border); border-bottom-left-radius:4px; }
+    .conv-time { font-size:11px; color:var(--muted); margin-top:4px; text-align:right; }
+    .conv-msg.theirs .conv-time { text-align:left; }
+    .conv-input { display:flex; gap:8px; }
+    .conv-input textarea { flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); font-size:14px; font-family:inherit; resize:none; height:44px; outline:none; }
+    .conv-input textarea:focus { border-color:var(--brand); }
     .toast { position:fixed; bottom:28px; right:28px; background:var(--brand); color:#fff; padding:14px 20px; border-radius:var(--radius); font-size:14px; font-weight:500; opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:300; box-shadow:0 4px 16px rgba(0,0,0,0.2); }
     .toast.show { opacity:1; }
     .toast.error { background:#991b1b; }
@@ -455,6 +492,32 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay hidden" id="profile-modal">
+  <div class="profile-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0">O meu perfil</h2>
+      <button class="btn btn-sm" onclick="closeProfile()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="avatar-upload">
+      <div class="avatar-lg" id="profile-avatar-preview"></div>
+      <div>
+        <label class="avatar-upload-btn" for="avatar-input"><i class="ti ti-camera"></i> Alterar foto</label>
+        <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewAvatar(this)">
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">JPG, PNG ou WEBP · máx. 2MB</div>
+      </div>
+    </div>
+    <div class="auth-msg" id="profile-msg"></div>
+    <div class="mfg"><label>Nome completo</label><input type="text" id="profile-name" placeholder="O seu nome"></div>
+    <div class="mfg"><label>Telefone</label><input type="tel" id="profile-phone" placeholder="+351 9XX XXX XXX"></div>
+    <div class="mfg"><label>Descrição</label><textarea id="profile-bio" placeholder="Fale um pouco sobre si..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:inherit;resize:vertical;min-height:70px;outline:none"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+      <button class="btn" onclick="closeProfile()">Cancelar</button>
+      <button class="btn btn-primary" id="profile-save-btn" onclick="saveProfile()"><i class="ti ti-check"></i> Guardar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
@@ -765,10 +828,13 @@ function updateNav() {
   if (currentUser && currentProfile) {
     var initials = ((currentProfile.full_name||currentUser.email||"?").charAt(0)).toUpperCase();
     var isLandlord = currentProfile.role === "landlord";
+    var avatarContent = currentProfile.avatar_url
+      ? '<img src="'+currentProfile.avatar_url+'" alt="">'
+      : initials;
     el.innerHTML =
       (isLandlord ? '<button class="btn btn-sm btn-primary" onclick="showPage(\'post\')"><i class="ti ti-plus"></i> Anunciar</button>' : '') +
       '<div class="nav-avatar-wrap">' +
-        '<div class="nav-avatar" id="nav-avatar-btn">' + initials + '</div>' +
+        '<div class="nav-avatar" id="nav-avatar-btn">' + avatarContent + '</div>' +
       '</div>';
     document.getElementById("nav-avatar-btn").addEventListener("click", function(e){
       e.stopPropagation();
@@ -777,20 +843,27 @@ function updateNav() {
       var wrap = document.querySelector(".nav-avatar-wrap");
       var d = document.createElement("div");
       d.id = "nav-dropdown"; d.className = "nav-dropdown";
+      var avHTML = currentProfile.avatar_url
+        ? '<img src="'+currentProfile.avatar_url+'" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0">'
+        : '<div style="width:38px;height:38px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">'+initials+'</div>';
       d.innerHTML =
-        '<div class="nav-dd-header">' +
-          '<div class="nav-dd-name">'+esc(currentProfile.full_name||"")+'</div>' +
-          '<div class="nav-dd-email">'+esc(currentUser.email||"")+'</div>' +
-          '<div class="nav-dd-role">'+(isLandlord?"Proprietário":"Arrendatário")+'</div>' +
+        '<div class="nav-dd-header" style="display:flex;align-items:center;gap:12px">' +
+          avHTML +
+          '<div style="min-width:0">' +
+            '<div class="nav-dd-name">'+esc(currentProfile.full_name||"")+'</div>' +
+            '<div class="nav-dd-email" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(currentUser.email||"")+'</div>' +
+            '<div class="nav-dd-role">'+(isLandlord?"Proprietário":"Arrendatário")+'</div>' +
+          '</div>' +
         '</div>' +
         '<div class="nav-dd-divider"></div>' +
-        '<div class="nav-dd-item" onclick="document.getElementById(\'nav-dropdown\').remove();showPage(\'dashboard\')"><i class="ti ti-layout-dashboard"></i> Dashboard</div>' +
-        (isLandlord ? '<div class="nav-dd-item" onclick="document.getElementById(\'nav-dropdown\').remove();showPage(\'post\')"><i class="ti ti-plus"></i> Publicar anúncio</div>' : '') +
+        '<div class="nav-dd-item" onclick="closeDD();showPage(\'dashboard\')"><i class="ti ti-layout-dashboard"></i> Dashboard</div>' +
+        (isLandlord ? '<div class="nav-dd-item" onclick="closeDD();showPage(\'post\')"><i class="ti ti-plus"></i> Publicar anúncio</div>' : '') +
+        '<div class="nav-dd-item" onclick="closeDD();openProfile()"><i class="ti ti-user-edit"></i> Editar perfil</div>' +
         '<div class="nav-dd-divider"></div>' +
-        '<div class="nav-dd-item danger" onclick="doLogout()"><i class="ti ti-logout"></i> Terminar sessão</div>';
+        '<div class="nav-dd-item danger" onclick="closeDD();doLogout()"><i class="ti ti-logout"></i> Terminar sessão</div>';
       wrap.appendChild(d);
       setTimeout(function(){
-        document.addEventListener("click", function h(){ var x=document.getElementById("nav-dropdown"); if(x)x.remove(); document.removeEventListener("click",h); });
+        document.addEventListener("click", function h(){ closeDD(); document.removeEventListener("click",h); });
       }, 0);
     });
   } else {
@@ -799,6 +872,7 @@ function updateNav() {
       '<button class="btn btn-sm btn-primary" onclick="openAuth(\'register\')">Registar</button>';
   }
 }
+function closeDD() { var d = document.getElementById("nav-dropdown"); if(d) d.remove(); }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 function openAuth(tab) { document.getElementById("auth-modal").classList.remove("hidden"); switchTab(tab); }
@@ -1201,6 +1275,252 @@ function showPage(name) {
   if (name==="listings")  fetchListings();
   if (name==="dashboard") showDashboard();
   if (name==="post" && !currentUser) { showPage("listings"); openAuth("login"); }
+}
+
+// ── PROFILE MODAL ────────────────────────────────────────────────────────
+var pendingAvatarFile = null;
+
+function openProfile() {
+  if (!currentProfile) return;
+  document.getElementById("profile-name").value  = currentProfile.full_name || "";
+  document.getElementById("profile-phone").value = currentProfile.phone || "";
+  document.getElementById("profile-bio").value   = currentProfile.bio || "";
+  document.getElementById("profile-msg").style.display = "none";
+  renderProfileAvatar();
+  pendingAvatarFile = null;
+  document.getElementById("profile-modal").classList.remove("hidden");
+}
+function closeProfile() { document.getElementById("profile-modal").classList.add("hidden"); }
+document.getElementById("profile-modal").addEventListener("click", function(e){ if(e.target===this) closeProfile(); });
+
+function renderProfileAvatar() {
+  var el = document.getElementById("profile-avatar-preview");
+  if (currentProfile.avatar_url) {
+    el.innerHTML = '<img src="'+currentProfile.avatar_url+'" style="width:100%;height:100%;object-fit:cover">';
+  } else {
+    el.textContent = ((currentProfile.full_name||currentUser.email||"?").charAt(0)).toUpperCase();
+  }
+}
+
+function previewAvatar(input) {
+  var file = input.files[0]; if(!file) return;
+  pendingAvatarFile = file;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById("profile-avatar-preview").innerHTML = '<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover">';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveProfile() {
+  var btn = document.getElementById("profile-save-btn");
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> A guardar...';
+  var tok = await getAccessToken();
+  var updates = {
+    full_name: document.getElementById("profile-name").value.trim(),
+    phone:     document.getElementById("profile-phone").value.trim() || null,
+    bio:       document.getElementById("profile-bio").value.trim() || null
+  };
+
+  // Upload avatar if changed
+  if (pendingAvatarFile) {
+    var ext  = pendingAvatarFile.name.split(".").pop();
+    var path = currentUser.id+"/avatar."+ext;
+    var r = await fetch(SB_URL+"/storage/v1/object/avatars/"+path, {
+      method:"POST",
+      headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+tok, "Content-Type":pendingAvatarFile.type, "x-upsert":"true" },
+      body: pendingAvatarFile
+    });
+    if (r.ok) {
+      updates.avatar_url = SB_URL+"/storage/v1/object/public/avatars/"+path+"?t="+Date.now();
+    }
+  }
+
+  var r2 = await fetch(SB_URL+"/rest/v1/profiles?id=eq."+currentUser.id, {
+    method:"PATCH",
+    headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+tok, "Content-Type":"application/json", "Prefer":"return=representation" },
+    body: JSON.stringify(updates)
+  });
+
+  btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Guardar';
+
+  if (r2.ok) {
+    var rows = await r2.json();
+    if (Array.isArray(rows) && rows.length) currentProfile = rows[0];
+    else Object.assign(currentProfile, updates);
+    updateNav();
+    var msg = document.getElementById("profile-msg");
+    msg.textContent = "✓ Perfil actualizado!"; msg.className="auth-msg success"; msg.style.display="";
+    setTimeout(closeProfile, 1200);
+  } else {
+    var msg = document.getElementById("profile-msg");
+    msg.textContent = "Erro ao guardar. Tente novamente."; msg.className="auth-msg error"; msg.style.display="";
+  }
+}
+
+// ── MESSAGING SYSTEM ──────────────────────────────────────────────────────
+var currentThread = null; // { listing, otherUserId, otherName, messages }
+
+// Replace loadMessages (landlord inbox) with thread-based view
+async function loadMessages() {
+  var el = document.getElementById("dash-messages");
+  el.innerHTML = '<div class="loading-state">A carregar...</div>';
+  var tok = await getAccessToken();
+  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
+
+  // Get landlord's listings
+  var r1 = await fetch(SB_URL+"/rest/v1/listings?select=id,title&user_id=eq."+currentUser.id, { headers:h });
+  var myL = await r1.json(); myL = Array.isArray(myL)?myL:[];
+  if (!myL.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-off"></i><h3>Sem mensagens</h3><p>Quando tiver anúncios publicados, as mensagens dos arrendatários aparecerão aqui.</p></div>'; return; }
+
+  var listingMap = {}; myL.forEach(function(l){ listingMap[l.id]=l.title; });
+  var ids = myL.map(function(l){ return l.id; }).join(",");
+
+  // Get all messages for these listings grouped by sender
+  var r2 = await fetch(SB_URL+"/rest/v1/messages?select=*&listing_id=in.("+ids+")&order=created_at.desc", { headers:h });
+  var msgs = await r2.json(); msgs = Array.isArray(msgs)?msgs:[];
+
+  if (!msgs.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-off"></i><h3>Sem mensagens ainda</h3><p>Os arrendatários ainda não entraram em contacto.</p></div>'; return; }
+
+  // Group by sender+listing
+  var threads = {};
+  msgs.forEach(function(m) {
+    var key = m.sender_id+"_"+m.listing_id;
+    if (!threads[key]) threads[key] = { senderId:m.sender_id, listingId:m.listing_id, msgs:[], hasUnread:false };
+    threads[key].msgs.push(m);
+    if (!m.read) threads[key].hasUnread = true;
+  });
+
+  el.innerHTML = '<div class="thread-list">' +
+    Object.values(threads).map(function(t) {
+      var last = t.msgs[0];
+      var d = new Date(last.created_at).toLocaleDateString("pt-PT");
+      return '<div class="thread-item'+(t.hasUnread?" unread":""")+'" onclick="openThreadLandlord(''+t.senderId+'',''+t.listingId+'',''+esc(listingMap[t.listingId]||"")+'')">' +
+        '<div class="thread-header">' +
+          '<div>' +
+            '<div class="thread-name"><i class="ti ti-user" style="font-size:13px"></i> Arrendatário</div>' +
+            '<div class="thread-listing"><i class="ti ti-home" style="font-size:11px"></i> '+esc(listingMap[t.listingId]||"")+'</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+            '<div class="thread-date">'+d+'</div>' +
+            (t.hasUnread?'<div class="thread-unread-dot"></div>':'') +
+          '</div>' +
+        '</div>' +
+        '<div class="thread-preview">'+esc(last.content)+'</div>' +
+      '</div>';
+    }).join("") + '</div>';
+}
+
+async function openThreadLandlord(senderId, listingId, listingTitle) {
+  var el = document.getElementById("dash-messages");
+  el.innerHTML = '<div class="loading-state">A carregar conversa...</div>';
+  var tok = await getAccessToken();
+  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
+
+  var r = await fetch(SB_URL+"/rest/v1/messages?select=*&listing_id=eq."+listingId+"&sender_id=eq."+senderId+"&order=created_at.asc", { headers:h });
+  var msgs = await r.json(); msgs = Array.isArray(msgs)?msgs:[];
+
+  // Mark as read
+  fetch(SB_URL+"/rest/v1/messages?listing_id=eq."+listingId+"&sender_id=eq."+senderId, {
+    method:"PATCH", headers:Object.assign({"Content-Type":"application/json"},h), body:'{"read":true}'
+  });
+
+  renderConversation(el, msgs, listingId, senderId, listingTitle, "landlord");
+}
+
+async function loadSentMessages() {
+  var el = document.getElementById("dash-sent"); if(!el) return;
+  el.innerHTML = '<div class="loading-state">A carregar...</div>';
+  var tok = await getAccessToken();
+  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
+
+  // Get unique listing threads this tenant has messaged
+  var r = await fetch(SB_URL+"/rest/v1/messages?select=listing_id&sender_id=eq."+currentUser.id, { headers:h });
+  var rows = await r.json(); rows = Array.isArray(rows)?rows:[];
+  var listingIds = [...new Set(rows.map(function(r){ return r.listing_id; }))];
+
+  if (!listingIds.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-forward"></i><h3>Sem mensagens enviadas</h3><p>Contacte proprietários nos anúncios para iniciar uma conversa.</p></div>'; return; }
+
+  // Get listing details
+  var r2 = await fetch(SB_URL+"/rest/v1/listings?select=id,title,city,user_id&id=in.("+listingIds.join(",")+")", { headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+SB_ANON } });
+  var listings = await r2.json(); listings = Array.isArray(listings)?listings:[];
+
+  // Get last message per listing
+  var r3 = await fetch(SB_URL+"/rest/v1/messages?select=*&sender_id=eq."+currentUser.id+"&listing_id=in.("+listingIds.join(",")+"&order=created_at.desc", { headers:h });
+  var allMsgs = await r3.json(); allMsgs = Array.isArray(allMsgs)?allMsgs:[];
+
+  el.innerHTML = '<div class="thread-list">' +
+    listings.map(function(l) {
+      var last = allMsgs.find(function(m){ return m.listing_id===l.id; });
+      var d = last ? new Date(last.created_at).toLocaleDateString("pt-PT") : "";
+      return '<div class="thread-item" onclick="openThreadTenant(''+l.id+'',''+esc(l.title)+'',''+l.user_id+'')">' +
+        '<div class="thread-header">' +
+          '<div>' +
+            '<div class="thread-name">'+esc(l.title)+'</div>' +
+            '<div class="thread-listing"><i class="ti ti-map-pin" style="font-size:11px"></i> '+esc(l.city||"")+'</div>' +
+          '</div>' +
+          '<div class="thread-date">'+d+'</div>' +
+        '</div>' +
+        '<div class="thread-preview">'+(last?esc(last.content):"")+'</div>' +
+      '</div>';
+    }).join("") + '</div>';
+}
+
+async function openThreadTenant(listingId, listingTitle, landlordId) {
+  var el = document.getElementById("dash-sent"); if(!el) return;
+  el.innerHTML = '<div class="loading-state">A carregar conversa...</div>';
+  var tok = await getAccessToken();
+  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
+  var r = await fetch(SB_URL+"/rest/v1/messages?select=*&listing_id=eq."+listingId+"&sender_id=eq."+currentUser.id+"&order=created_at.asc", { headers:h });
+  var msgs = await r.json(); msgs = Array.isArray(msgs)?msgs:[];
+  renderConversation(el, msgs, listingId, landlordId, listingTitle, "tenant");
+}
+
+function renderConversation(el, msgs, listingId, otherId, listingTitle, role) {
+  var backFn = role==="landlord" ? "loadMessages()" : "loadSentMessages()";
+  el.innerHTML =
+    '<div class="conversation-header">' +
+      '<i class="ti ti-arrow-left conv-back" onclick="'+backFn+'"></i>' +
+      '<div class="conv-info">' +
+        '<h3>'+esc(listingTitle)+'</h3>' +
+        '<p>'+(role==="landlord"?"Mensagem de arrendatário":"Conversa com proprietário")+'</p>' +
+      '</div>' +
+    '</div>' +
+    '<div class="conv-messages" id="conv-msgs">' +
+      msgs.map(function(m) {
+        var isMine = m.sender_id === currentUser.id;
+        var d = new Date(m.created_at).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})+" · "+new Date(m.created_at).toLocaleDateString("pt-PT");
+        return '<div class="conv-msg '+(isMine?"mine":"theirs")+'">' +
+          '<div class="conv-bubble">'+esc(m.content)+'</div>' +
+          '<div class="conv-time">'+d+'</div>' +
+        '</div>';
+      }).join("") +
+    '</div>' +
+    '<div class="conv-input">' +
+      '<textarea id="reply-input" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendReply(''+listingId+'',''+otherId+'',''+listingTitle+'',''+role+'')}"></textarea>' +
+      '<button class="btn btn-primary" onclick="sendReply(''+listingId+'',''+otherId+'',''+listingTitle+'',''+role+'')"><i class="ti ti-send"></i></button>' +
+    '</div>';
+
+  // scroll to bottom
+  setTimeout(function(){ var cm=document.getElementById("conv-msgs"); if(cm) cm.scrollTop=cm.scrollHeight; }, 50);
+}
+
+async function sendReply(listingId, otherId, listingTitle, role) {
+  var input = document.getElementById("reply-input");
+  var content = input.value.trim(); if(!content) return;
+  var tok = await getAccessToken();
+  var r = await fetch(SB_URL+"/rest/v1/messages", {
+    method:"POST",
+    headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+tok, "Content-Type":"application/json", "Prefer":"return=representation" },
+    body: JSON.stringify({ listing_id:listingId, sender_id:currentUser.id, receiver_id:otherId, content:content, read:false })
+  });
+  if (r.ok) {
+    input.value = "";
+    // Refresh conversation
+    var el = role==="landlord" ? document.getElementById("dash-messages") : document.getElementById("dash-sent");
+    if (role==="landlord") openThreadLandlord(otherId, listingId, listingTitle);
+    else openThreadTenant(listingId, listingTitle, otherId);
+  } else { showToast("Erro ao enviar.", true); }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
