@@ -1019,26 +1019,66 @@ async function loadOverview() {
   var el = document.getElementById("dash-overview");
   el.innerHTML = '<div class="loading-state">A carregar...</div>';
   var tok = await getAccessToken();
-  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
-  var r1 = await fetch(SB_URL+"/rest/v1/listings?select=id&user_id=eq."+currentUser.id, { headers:h });
-  var myL = await r1.json(); myL = Array.isArray(myL)?myL:[];
-  var ids = myL.map(function(l){ return l.id; }).join(",");
-  var totalViews=0, totalMsgs=0, unread=0;
+  var h = { "apikey": SB_ANON, "Authorization": "Bearer " + tok };
+  var hpub = { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON };
+
+  var r1 = await fetch(SB_URL + "/rest/v1/listings?select=id,title,price&user_id=eq." + currentUser.id, { headers: h });
+  var myL = await r1.json(); myL = Array.isArray(myL) ? myL : [];
+  var ids = myL.map(function(l) { return l.id; }).join(",");
+
+  var totalViews = 0, totalMsgs = 0, unread = 0, totalFavs = 0;
+  var viewsByListing = {}, favsByListing = {}, msgsByListing = {};
+
   if (ids) {
-    var r2 = await fetch(SB_URL+"/rest/v1/listing_views?select=id&listing_id=in.("+ids+")", { headers:h });
-    var views = await r2.json(); totalViews = Array.isArray(views)?views.length:0;
-    var r3 = await fetch(SB_URL+"/rest/v1/messages?select=id,read&listing_id=in.("+ids+")", { headers:h });
-    var msgs = await r3.json(); msgs = Array.isArray(msgs)?msgs:[];
-    totalMsgs = msgs.length; unread = msgs.filter(function(m){ return !m.read; }).length;
+    var r2 = await fetch(SB_URL + "/rest/v1/listing_views?select=listing_id&listing_id=in.(" + ids + ")", { headers: hpub });
+    var views = await r2.json(); views = Array.isArray(views) ? views : [];
+    totalViews = views.length;
+    views.forEach(function(v) { viewsByListing[v.listing_id] = (viewsByListing[v.listing_id] || 0) + 1; });
+
+    var r3 = await fetch(SB_URL + "/rest/v1/favourites?select=listing_id&listing_id=in.(" + ids + ")", { headers: hpub });
+    var favs = await r3.json(); favs = Array.isArray(favs) ? favs : [];
+    totalFavs = favs.length;
+    favs.forEach(function(f) { favsByListing[f.listing_id] = (favsByListing[f.listing_id] || 0) + 1; });
+
+    var r4 = await fetch(SB_URL + "/rest/v1/messages?select=listing_id,read&listing_id=in.(" + ids + ")", { headers: h });
+    var msgs = await r4.json(); msgs = Array.isArray(msgs) ? msgs : [];
+    totalMsgs = msgs.length;
+    unread = msgs.filter(function(m) { return !m.read; }).length;
+    msgs.forEach(function(m) { msgsByListing[m.listing_id] = (msgsByListing[m.listing_id] || 0) + 1; });
   }
-  el.innerHTML =
+
+  var statsHtml =
     '<div class="stats-grid">' +
-    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-home"></i> Anúncios</div><div class="stat-card-value">'+myL.length+'</div></div>' +
-    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-eye"></i> Visitas</div><div class="stat-card-value">'+totalViews+'</div></div>' +
-    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-message"></i> Mensagens</div><div class="stat-card-value">'+totalMsgs+'</div></div>' +
-    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-bell"></i> Não lidas</div><div class="stat-card-value">'+unread+'</div></div>' +
-    '</div>' +
-    '<button class="btn btn-primary" onclick="showPage(\'post\')"><i class="ti ti-plus"></i> Publicar novo anúncio</button>';
+    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-home"></i> Anúncios</div><div class="stat-card-value">' + myL.length + '</div></div>' +
+    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-eye"></i> Visualizações</div><div class="stat-card-value">' + totalViews + '</div></div>' +
+    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-heart"></i> Favoritos</div><div class="stat-card-value">' + totalFavs + '</div></div>' +
+    '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-message"></i> Mensagens</div><div class="stat-card-value">' + totalMsgs + '</div></div>' +
+    '</div>';
+
+  // Per-listing breakdown
+  var tableHtml = "";
+  if (myL.length) {
+    tableHtml = '<h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Por anúncio</h3>' +
+      '<div class="listings-table">' +
+      '<div class="table-header" style="grid-template-columns:1fr 70px 70px 70px">' +
+        '<span>Anúncio</span><span><i class="ti ti-eye"></i></span><span><i class="ti ti-heart"></i></span><span><i class="ti ti-message"></i></span>' +
+      '</div>' +
+      myL.map(function(l) {
+        return '<div class="table-row" style="grid-template-columns:1fr 70px 70px 70px">' +
+          '<div><div style="font-weight:500;font-size:13px">' + esc(l.title) + '</div>' +
+          '<div style="font-size:12px;color:var(--muted)">€' + Number(l.price).toLocaleString("pt-PT") + '/mês</div></div>' +
+          '<div style="font-size:14px;color:var(--muted)">' + (viewsByListing[l.id] || 0) + '</div>' +
+          '<div style="font-size:14px;color:var(--muted)">' + (favsByListing[l.id] || 0) + '</div>' +
+          '<div style="font-size:14px;color:var(--muted)">' + (msgsByListing[l.id] || 0) + '</div>' +
+        '</div>';
+      }).join("") +
+      '</div>';
+  }
+
+  el.innerHTML = statsHtml + tableHtml +
+    '<div style="margin-top:20px">' +
+    '<button class="btn btn-primary" onclick="showPage(&quot;post&quot;)"><i class="ti ti-plus"></i> Publicar novo anúncio</button>' +
+    '</div>';
 }
 
 async function loadMyListings() {
