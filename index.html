@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>homie – Arrendamentos em Portugal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -246,6 +248,30 @@
     .conv-input { display:flex; gap:8px; }
     .conv-input textarea { flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); font-size:14px; font-family:inherit; resize:none; height:44px; outline:none; }
     .conv-input textarea:focus { border-color:var(--brand); }
+    /* MAP */
+    .map-page-layout { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 65px); }
+    .map-sidebar { overflow-y:auto; border-right:1px solid var(--border); background:var(--bg); }
+    .map-sidebar-header { padding:16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:1; }
+    .map-sidebar-header h2 { font-size:16px; font-weight:700; margin-bottom:10px; }
+    .map-search { display:flex; gap:8px; }
+    .map-search input { flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius); font-size:14px; font-family:inherit; outline:none; }
+    .map-search input:focus { border-color:var(--brand); }
+    .map-listing-list { padding:8px; }
+    .map-listing-item { display:flex; gap:12px; padding:12px; border-radius:var(--radius-lg); cursor:pointer; border:1px solid transparent; margin-bottom:6px; }
+    .map-listing-item:hover, .map-listing-item.active { background:var(--brand-light); border-color:var(--brand); }
+    .map-listing-thumb { width:72px; height:56px; border-radius:var(--radius); object-fit:cover; background:var(--brand-light); display:flex; align-items:center; justify-content:center; color:var(--brand); font-size:20px; flex-shrink:0; overflow:hidden; }
+    .map-listing-thumb img { width:100%; height:100%; object-fit:cover; }
+    .map-listing-info { flex:1; min-width:0; }
+    .map-listing-price { font-size:15px; font-weight:700; color:var(--brand); }
+    .map-listing-title { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:2px 0; }
+    .map-listing-loc { font-size:12px; color:var(--muted); }
+    #main-map { flex:1; z-index:0; }
+    #detail-map { height:220px; border-radius:var(--radius-lg); margin-bottom:16px; z-index:0; border:1px solid var(--border); }
+    .leaflet-popup-content-wrapper { border-radius:var(--radius-lg) !important; box-shadow:0 4px 16px rgba(0,0,0,0.15) !important; }
+    .map-popup { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-width:180px; }
+    .map-popup-price { font-size:16px; font-weight:700; color:#1D5C4A; }
+    .map-popup-title { font-size:13px; margin:4px 0; }
+    .map-popup-btn { display:block; margin-top:8px; padding:6px 12px; background:#1D5C4A; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; width:100%; font-family:inherit; font-weight:500; }
     .toast { position:fixed; bottom:28px; right:28px; background:var(--brand); color:#fff; padding:14px 20px; border-radius:var(--radius); font-size:14px; font-weight:500; opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:300; box-shadow:0 4px 16px rgba(0,0,0,0.2); }
     .toast.show { opacity:1; }
     .toast.error { background:#991b1b; }
@@ -272,10 +298,29 @@
     <i class="ti ti-building"></i>homie
   </div>
   <div class="nav-actions" id="nav-actions">
-    <button class="btn btn-sm btn-outline" onclick="openAuth('login')">Entrar</button>
+    <button class="btn btn-sm" onclick="showPage('map')"><i class="ti ti-map"></i> Mapa</button>
+      <button class="btn btn-sm btn-outline" onclick="openAuth('login')">Entrar</button>
     <button class="btn btn-sm btn-primary" onclick="openAuth('register')">Registar</button>
   </div>
 </nav>
+
+<!-- MAP PAGE -->
+<div id="page-map" class="page">
+  <div class="map-page-layout">
+    <div class="map-sidebar">
+      <div class="map-sidebar-header">
+        <h2><i class="ti ti-map-pin" style="color:var(--brand)"></i> Anúncios no mapa</h2>
+        <div class="map-search">
+          <input type="text" id="map-search" placeholder="Pesquisar cidade ou zona..." oninput="filterMapListings()">
+        </div>
+      </div>
+      <div class="map-listing-list" id="map-listing-list">
+        <div class="loading-state">A carregar...</div>
+      </div>
+    </div>
+    <div id="main-map"></div>
+  </div>
+</div>
 
 <!-- AUTH MODAL -->
 <div class="modal-overlay hidden" id="auth-modal">
@@ -393,6 +438,7 @@
 <!-- DETAIL PAGE -->
 <div id="page-detail" class="page">
   <div class="detail-back"><button class="btn btn-sm btn-outline" onclick="showPage('listings')"><i class="ti ti-arrow-left"></i> Voltar</button></div>
+  <div id="detail-map" style="display:none"></div>
   <div class="detail-gallery" id="detail-gallery"><i class="ti ti-home" style="font-size:72px"></i></div>
   <div class="detail-body">
     <div>
@@ -467,6 +513,7 @@
         <div class="fg"><label>Cidade *</label><input type="text" id="f-city" placeholder="Lisboa"></div>
         <div class="fg"><label>Código postal</label><input type="text" id="f-postal" placeholder="1200-110"></div>
       </div>
+      <div style="margin-top:4px;font-size:13px;color:var(--muted)"><i class="ti ti-info-circle"></i> A localização no mapa é preenchida automaticamente com base na morada e cidade.</div>
     </div>
     <div class="form-section">
       <div class="section-title">Preço e disponibilidade</div>
@@ -765,6 +812,7 @@ function openDetail(id) {
   });
 
   showPage("detail", l.id);
+  setTimeout(function() { initDetailMap(l); }, 150);
 }
 
 function prevImg(id) {
@@ -1262,6 +1310,18 @@ async function submitListing() {
   var btn = document.getElementById("submit-btn");
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> A publicar...';
   var tok = await getAccessToken();
+
+  // Geocode the address for map display
+  var lat = null, lng = null;
+  try {
+    var geoQuery = [g("f-address"), g("f-city"), "Portugal"].filter(Boolean).join(", ");
+    var geoR = await fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(geoQuery) + "&limit=1", {
+      headers: { "User-Agent": "homie-pt/1.0" }
+    });
+    var geoData = await geoR.json();
+    if (geoData && geoData.length) { lat = parseFloat(geoData[0].lat); lng = parseFloat(geoData[0].lon); }
+  } catch(e) { console.warn("Geocoding failed:", e); }
+
   var body = {
     user_id:currentUser.id, title:g("f-title"), description:g("f-desc")||null,
     price:parseFloat(g("f-price")), property_type:g("f-type"), typology:g("f-typology")||null,
@@ -1275,7 +1335,9 @@ async function submitListing() {
     elevator:document.getElementById("f-elevator").checked,
     balcony:document.getElementById("f-balcony").checked,
     landlord_name:currentProfile?currentProfile.full_name:null,
-    landlord_email:currentUser.email
+    landlord_email:currentUser.email,
+    latitude: lat,
+    longitude: lng
   };
   var r = await fetch(SB_URL+"/rest/v1/listings", {
     method:"POST",
@@ -1316,6 +1378,7 @@ function showPage(name, id) {
   if (name === "detail" && id) { window.location.hash = "listing/" + id; }
   if (name === "dashboard") { window.location.hash = "dashboard"; showDashboard(); }
   if (name === "post")      { window.location.hash = "post"; }
+  if (name === "map")       { window.location.hash = "map"; setTimeout(initMainMap, 50); }
   if (name === "post" && !currentUser) { showPage("listings"); openAuth("login"); }
 }
 
@@ -1341,6 +1404,8 @@ function handleHash() {
     showPage("dashboard");
   } else if (hash === "post") {
     showPage("post");
+  } else if (hash === "map") {
+    showPage("map");
   } else {
     showPage("listings");
   }
@@ -1630,4 +1695,181 @@ function showToast(msg, err) {
 }
 </script>
 </body>
-</html>
+</html// ── MAP ─────────────────────────────────────────────────────────────────────────────
+var mainMap = null, detailMap = null, mapMarkers = [], mapListings = [];
+
+var brandIcon = null;
+function getMarkerIcon(active) {
+  if (!window.L) return null;
+  return L.divIcon({
+    className: "",
+    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:4px 8px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid #fff">' + (active ? "&#x2605; " : "") + "€" + (active || "") + "</div>",
+    iconAnchor: [20, 16]
+  });
+}
+
+function getPriceIcon(price, active) {
+  if (!window.L) return null;
+  return L.divIcon({
+    className: "",
+    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid #fff;cursor:pointer">€' + Number(price).toLocaleString("pt-PT") + '</div>',
+    iconAnchor: [30, 16]
+  });
+}
+
+async function initMainMap() {
+  if (!window.L) { setTimeout(initMainMap, 200); return; }
+
+  // Fetch listings with coordinates
+  var r = await fetch(SB_URL + "/rest/v1/listings?select=*&order=created_at.desc", {
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON }
+  });
+  var data = await r.json();
+  mapListings = Array.isArray(data) ? data : [];
+
+  if (mainMap) { mainMap.remove(); mainMap = null; }
+
+  mainMap = L.map("main-map", { zoomControl: true }).setView([39.5, -8.0], 6);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19
+  }).addTo(mainMap);
+
+  mapMarkers = [];
+  renderMapListings(mapListings);
+}
+
+function renderMapListings(list) {
+  // Clear existing markers
+  mapMarkers.forEach(function(m) { mainMap.removeLayer(m); });
+  mapMarkers = [];
+
+  var withCoords = list.filter(function(l) { return l.latitude && l.longitude; });
+  var html = "";
+
+  if (!withCoords.length) {
+    document.getElementById("map-listing-list").innerHTML =
+      '<div class="empty-state" style="padding:40px 16px"><i class="ti ti-map-pin-off"></i><h3>Sem coordenadas</h3><p>Os anuncios nao tem localizacao no mapa.</p></div>';
+  }
+
+  withCoords.forEach(function(l) {
+    var icon = getPriceIcon(l.price, false);
+    var marker = L.marker([l.latitude, l.longitude], { icon: icon }).addTo(mainMap);
+
+    var imgHtml = (l.images && l.images.length)
+      ? '<img src="' + l.images[0] + '" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px">'
+      : "";
+    marker.bindPopup(
+      '<div class="map-popup">' + imgHtml +
+      '<div class="map-popup-price">€' + Number(l.price).toLocaleString("pt-PT") + '/mês</div>' +
+      '<div class="map-popup-title">' + esc(l.title) + '</div>' +
+      '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">' + esc(l.city || "") + '</div>' +
+      '<button class="map-popup-btn" onclick="openDetailFromMap('' + l.id + '')">Ver anúncio</button>' +
+      '</div>',
+      { maxWidth: 220 }
+    );
+
+    marker.on("click", function() { highlightMapItem(l.id); });
+    mapMarkers.push({ id: l.id, marker: marker });
+
+    // Sidebar item
+    var icon2 = ICO[l.property_type] || "ti-home";
+    var thumb = (l.images && l.images.length)
+      ? '<img src="' + l.images[0] + '" alt="">'
+      : '<i class="ti ' + icon2 + '"></i>';
+    html += '<div class="map-listing-item" id="mapitem-' + l.id + '" onclick="flyToListing('' + l.id + '')">' +
+      '<div class="map-listing-thumb">' + thumb + '</div>' +
+      '<div class="map-listing-info">' +
+        '<div class="map-listing-price">€' + Number(l.price).toLocaleString("pt-PT") + '<span style="font-size:11px;font-weight:400;color:#6b7280">/mês</span></div>' +
+        '<div class="map-listing-title">' + esc(l.title) + '</div>' +
+        '<div class="map-listing-loc"><i class="ti ti-map-pin" style="font-size:11px"></i> ' + esc(l.city || "") + '</div>' +
+      '</div></div>';
+  });
+
+  document.getElementById("map-listing-list").innerHTML = html || '<div style="padding:16px;color:#6b7280;font-size:14px">Nenhum resultado.</div>';
+
+  // Fit map to markers
+  if (withCoords.length) {
+    var bounds = L.latLngBounds(withCoords.map(function(l) { return [l.latitude, l.longitude]; }));
+    mainMap.fitBounds(bounds, { padding: [40, 40] });
+  }
+}
+
+function flyToListing(id) {
+  var l = mapListings.find(function(x) { return x.id === id; });
+  if (!l || !l.latitude) return;
+  mainMap.flyTo([l.latitude, l.longitude], 15, { duration: 0.8 });
+  var markerObj = mapMarkers.find(function(m) { return m.id === id; });
+  if (markerObj) { setTimeout(function() { markerObj.marker.openPopup(); }, 900); }
+  highlightMapItem(id);
+}
+
+function highlightMapItem(id) {
+  document.querySelectorAll(".map-listing-item").forEach(function(el) { el.classList.remove("active"); });
+  var el = document.getElementById("mapitem-" + id);
+  if (el) { el.classList.add("active"); el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+}
+
+function openDetailFromMap(id) {
+  // Close popup and go to detail
+  if (mainMap) mainMap.closePopup();
+  // Load listing into allListings if not there
+  var l = mapListings.find(function(x) { return x.id === id; });
+  if (l) {
+    if (!allListings.find(function(x) { return x.id === id; })) allListings.push(l);
+    openDetail(id);
+  }
+}
+
+function filterMapListings() {
+  var q = document.getElementById("map-search").value.toLowerCase().trim();
+  var filtered = !q ? mapListings : mapListings.filter(function(l) {
+    return [l.city, l.title, l.address, l.postal_code].some(function(v) { return v && v.toLowerCase().includes(q); });
+  });
+  renderMapListings(filtered);
+}
+
+// Detail map - shown in listing detail page
+async function initDetailMap(listing) {
+  var el = document.getElementById("detail-map");
+  if (!el || !window.L) return;
+
+  var lat = listing.latitude, lng = listing.longitude;
+
+  // If no coords, try geocoding the address
+  if (!lat || !lng) {
+    var query = [listing.address, listing.city, "Portugal"].filter(Boolean).join(", ");
+    try {
+      var r = await fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query) + "&limit=1", {
+        headers: { "User-Agent": "homie-pt/1.0" }
+      });
+      var geo = await r.json();
+      if (geo && geo.length) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+    } catch(e) { console.warn("Geocoding failed:", e); }
+  }
+
+  if (!lat || !lng) { el.style.display = "none"; return; }
+
+  el.style.display = "block";
+  if (detailMap) { detailMap.remove(); detailMap = null; }
+
+  detailMap = L.map(el, { zoomControl: true, scrollWheelZoom: false }).setView([lat, lng], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors", maxZoom: 19
+  }).addTo(detailMap);
+
+  var markerIcon = L.divIcon({
+    className: "",
+    html: '<div style="background:#1D5C4A;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:3px solid #fff"><i class="ti ti-home" style="font-size:16px"></i></div>',
+    iconAnchor: [18, 18]
+  });
+
+  L.marker([lat, lng], { icon: markerIcon }).addTo(detailMap)
+    .bindPopup('<div style="font-size:13px;font-weight:600">' + esc(listing.city || "") + '</div>')
+    .openPopup();
+
+  // Blur circle for privacy (show neighbourhood, not exact address)
+  L.circle([lat, lng], { radius: 150, color: "#1D5C4A", fillColor: "#1D5C4A", fillOpacity: 0.1, weight: 1 }).addTo(detailMap);
+}
+
+>
