@@ -1697,9 +1697,8 @@ function showToast(msg, err) {
   t.className="toast show"+(err?" error":"");
   setTimeout(function(){ t.classList.remove("show"); }, 3500);
 }
-</script>
-</body>
-</html// ── MAP ──────────────────────────────────────────────────────────────────
+
+
 var mainMap = null, detailMap = null, mapMarkers = [], mapListings = [];
 
 function getPriceIcon(price, active) {
@@ -1886,4 +1885,6 @@ async function initDetailMap(listing) {
   L.circle([lat, lng], { radius: 150, color: "#1D5C4A", fillColor: "#1D5C4A", fillOpacity: 0.1, weight: 1 }).addTo(detailMap);
 }
 
->
+</script>
+</body>
+</html>
