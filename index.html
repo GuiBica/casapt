@@ -544,6 +544,18 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- LIGHTBOX -->
+<div class="lightbox-overlay" id="lightbox" style="display:none" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()"><i class="ti ti-x"></i></button>
+  <button class="lightbox-nav lightbox-prev" id="lb-prev" onclick="lbNav(-1);event.stopPropagation()"><i class="ti ti-chevron-left"></i></button>
+  <div class="lightbox-inner">
+    <img class="lightbox-img" id="lb-img" src="" alt="">
+  </div>
+  <button class="lightbox-nav lightbox-next" id="lb-next" onclick="lbNav(1);event.stopPropagation()"><i class="ti ti-chevron-right"></i></button>
+  <div class="lightbox-dots" id="lb-dots"></div>
+  <div class="lightbox-counter" id="lb-counter"></div>
+</div>
+
 <!-- EDIT LISTING MODAL -->
 <div class="modal-overlay hidden" id="edit-modal">
   <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
@@ -791,31 +803,48 @@ function openDetail(id) {
   // gallery
   var gallery = document.getElementById("detail-gallery");
   if (l.images && l.images.length) {
-    var idx = 0;
-    function renderGal() {
-      var nav = l.images.length > 1
-        ? '<button class="gallery-nav prev" onclick="event.stopPropagation();gIdx=(gIdx-1+'+l.images.length+')%'+l.images.length+';renderGal()"><i class="ti ti-chevron-left"></i></button>' +
-          '<button class="gallery-nav next" onclick="event.stopPropagation();gIdx=(gIdx+1)%'+l.images.length+';renderGal()"><i class="ti ti-chevron-right"></i></button>' +
-          '<div class="gallery-dots">' + l.images.map(function(_,i){ return '<div class="gallery-dot'+(i===idx?" active":"")+'"></div>'; }).join("") + '</div>'
-        : "";
-      gallery.innerHTML = '<img src="'+l.images[idx]+'" alt="">' + nav;
-    }
-    var gIdx = 0;
-    gallery.innerHTML = '<img src="'+l.images[0]+'" alt="">';
-    if (l.images.length > 1) {
-      gallery.innerHTML +=
-        '<button class="gallery-nav prev" onclick="prevImg(\''+id+'\')"><i class="ti ti-chevron-left"></i></button>' +
-        '<button class="gallery-nav next" onclick="nextImg(\''+id+'\')"><i class="ti ti-chevron-right"></i></button>' +
-        '<div class="gallery-dots" id="gal-dots-'+id+'">' +
-        l.images.map(function(_,i){ return '<div class="gallery-dot'+(i===0?" active":"")+'"></div>'; }).join("") + '</div>';
-    }
-    gallery._imgs = l.images; gallery._idx = 0;
+    gallery._imgs = l.images;
+    gallery._idx = 0;
+    (function buildGallery() {
+      var imgs = gallery._imgs, idx = gallery._idx;
+      gallery.innerHTML = "";
+      var imgEl = document.createElement("img");
+      imgEl.src = imgs[idx]; imgEl.alt = "";
+      imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;cursor:zoom-in";
+      (function(i) { imgEl.addEventListener("click", function() { openLightbox(imgs, i); }); }(idx));
+      gallery.appendChild(imgEl);
+      if (imgs.length > 1) {
+        var prev = document.createElement("button");
+        prev.className = "gallery-nav prev";
+        prev.innerHTML = '<i class="ti ti-chevron-left"></i>';
+        prev.addEventListener("click", function(e) { e.stopPropagation(); gallery._idx = (gallery._idx - 1 + imgs.length) % imgs.length; buildGallery(); });
+        gallery.appendChild(prev);
+        var next = document.createElement("button");
+        next.className = "gallery-nav next";
+        next.innerHTML = '<i class="ti ti-chevron-right"></i>';
+        next.addEventListener("click", function(e) { e.stopPropagation(); gallery._idx = (gallery._idx + 1) % imgs.length; buildGallery(); });
+        gallery.appendChild(next);
+        var dotsEl = document.createElement("div");
+        dotsEl.className = "gallery-dots";
+        imgs.forEach(function(_, i) {
+          var d = document.createElement("div");
+          d.className = "gallery-dot" + (i === idx ? " active" : "");
+          (function(ii) { d.addEventListener("click", function(e) { e.stopPropagation(); gallery._idx = ii; buildGallery(); }); }(i));
+          dotsEl.appendChild(d);
+        });
+        gallery.appendChild(dotsEl);
+        var hint = document.createElement("div");
+        hint.style.cssText = "position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,0.5);color:#fff;font-size:12px;padding:4px 10px;border-radius:20px;pointer-events:none";
+        hint.innerHTML = '<i class="ti ti-maximize" style="font-size:12px"></i> ' + imgs.length + ' fotos';
+        gallery.appendChild(hint);
+      }
+    })();
   } else {
     var icon = ICO[l.property_type] || "ti-home";
     gallery.innerHTML = '<i class="ti ' + icon + '" style="font-size:72px"></i>';
   }
 
-  document.getElementById("detail-title").textContent = l.title;
+    document.getElementById("detail-title").textContent = l.title;
   document.getElementById("detail-loc").textContent = [l.address, l.city, l.postal_code].filter(Boolean).join(", ");
 
   var stats = [];
@@ -1848,6 +1877,56 @@ async function doSendReply(ctx) {
 async function sendReply(listingId, otherId, listingTitle, role) {
   doSendReply({ listingId: listingId, otherId: otherId, listingTitle: listingTitle, role: role,
     elId: role === "landlord" ? "dash-messages" : "dash-sent" });
+}
+
+// ── LIGHTBOX ─────────────────────────────────────────────────────────────
+var lbImages = [], lbIndex = 0;
+
+function openLightbox(images, startIndex) {
+  lbImages = images;
+  lbIndex = startIndex || 0;
+  renderLightbox();
+  var overlay = document.getElementById("lightbox");
+  overlay.style.display = "flex";
+  requestAnimationFrame(function() { overlay.classList.add("active"); });
+  document.addEventListener("keydown", lbKeyHandler);
+}
+
+function closeLightbox(e) {
+  if (e && e.target && e.target.id !== "lightbox") return;
+  var overlay = document.getElementById("lightbox");
+  overlay.classList.remove("active");
+  setTimeout(function() { overlay.style.display = "none"; }, 200);
+  document.removeEventListener("keydown", lbKeyHandler);
+}
+
+function lbKeyHandler(e) {
+  if (e.key === "ArrowLeft")  lbNav(-1);
+  if (e.key === "ArrowRight") lbNav(1);
+  if (e.key === "Escape")     closeLightbox({});
+}
+
+function lbNav(dir) {
+  lbIndex = (lbIndex + dir + lbImages.length) % lbImages.length;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  document.getElementById("lb-img").src = lbImages[lbIndex];
+  document.getElementById("lb-counter").textContent = (lbIndex + 1) + " / " + lbImages.length;
+  document.getElementById("lb-prev").style.display = lbImages.length > 1 ? "" : "none";
+  document.getElementById("lb-next").style.display = lbImages.length > 1 ? "" : "none";
+
+  var dots = document.getElementById("lb-dots");
+  dots.innerHTML = "";
+  if (lbImages.length > 1) {
+    lbImages.forEach(function(_, i) {
+      var d = document.createElement("button");
+      d.className = "lightbox-dot" + (i === lbIndex ? " active" : "");
+      d.addEventListener("click", function(e) { e.stopPropagation(); lbIndex = i; renderLightbox(); });
+      dots.appendChild(d);
+    });
+  }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
