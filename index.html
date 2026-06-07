@@ -486,11 +486,10 @@
     <div class="form-section">
       <div class="section-title">Informação</div>
       <div class="form-row single"><div class="fg"><label>Título *</label><input type="text" id="f-title" placeholder="Ex: T2 Renovado com Terraço – Príncipe Real"></div></div>
-      <div class="form-row">
-        <div class="fg"><label>Tipo *</label>
+      <div class="form-row single">
+        <div class="fg"><label>Tipo de imóvel *</label>
           <select id="f-type"><option value="">Selecionar...</option><option value="apartment">Apartamento</option><option value="house">Moradia</option><option value="studio">Estúdio</option><option value="room">Quarto</option></select>
         </div>
-        <div class="fg"><label>Tipologia</label><input type="text" id="f-typology" placeholder="Ex: T2"></div>
       </div>
       <div class="form-row triple">
         <div class="fg"><label>Quartos</label>
@@ -544,6 +543,60 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- EDIT LISTING MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="margin:0;font-size:18px">Editar anúncio</h2>
+      <button class="btn btn-sm" onclick="closeEditModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="auth-msg" id="edit-msg"></div>
+    <div class="form-section" style="margin-bottom:14px">
+      <div class="section-title">Informação</div>
+      <div class="form-row single"><div class="fg"><label>Título *</label><input type="text" id="e-title"></div></div>
+      <div class="form-row single"><div class="fg"><label>Tipo *</label>
+        <select id="e-type"><option value="">Selecionar...</option><option value="apartment">Apartamento</option><option value="house">Moradia</option><option value="studio">Estúdio</option><option value="room">Quarto</option></select>
+      </div></div>
+      <div class="form-row triple">
+        <div class="fg"><label>Quartos</label>
+          <select id="e-bedrooms"><option value="0">T0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4+</option></select>
+        </div>
+        <div class="fg"><label>WC</label>
+          <select id="e-bathrooms"><option value="1">1</option><option value="2">2</option><option value="3">3+</option></select>
+        </div>
+        <div class="fg"><label>Área (m²)</label><input type="number" id="e-area"></div>
+      </div>
+      <div class="form-row single"><div class="fg"><label>Descrição</label><textarea id="e-desc" style="min-height:80px"></textarea></div></div>
+      <div class="toggle-row" style="margin-top:8px">
+        <label class="toggle-item"><input type="checkbox" id="e-furnished"> Mobilado</label>
+        <label class="toggle-item"><input type="checkbox" id="e-pets"> Animais</label>
+        <label class="toggle-item"><input type="checkbox" id="e-parking"> Garagem</label>
+        <label class="toggle-item"><input type="checkbox" id="e-elevator"> Elevador</label>
+        <label class="toggle-item"><input type="checkbox" id="e-balcony"> Varanda</label>
+      </div>
+    </div>
+    <div class="form-section" style="margin-bottom:14px">
+      <div class="section-title">Localização</div>
+      <div class="form-row single"><div class="fg"><label>Morada</label><input type="text" id="e-address"></div></div>
+      <div class="form-row">
+        <div class="fg"><label>Cidade</label><input type="text" id="e-city"></div>
+        <div class="fg"><label>Código postal</label><input type="text" id="e-postal"></div>
+      </div>
+    </div>
+    <div class="form-section" style="margin-bottom:14px">
+      <div class="section-title">Preço e disponibilidade</div>
+      <div class="form-row">
+        <div class="fg"><label>Renda mensal (€)</label><input type="number" id="e-price"></div>
+        <div class="fg"><label>Disponível a partir de</label><input type="date" id="e-available"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn btn-primary" id="edit-save-btn" onclick="saveEdit()"><i class="ti ti-check"></i> Guardar alterações</button>
+    </div>
+  </div>
+</div>
 
 <!-- PROFILE MODAL -->
 <div class="modal-overlay hidden" id="profile-modal">
@@ -1137,24 +1190,52 @@ async function loadMyListings() {
   var el = document.getElementById("dash-mylistings");
   el.innerHTML = '<div class="loading-state">A carregar...</div>';
   var tok = await getAccessToken();
-  var r = await fetch(SB_URL+"/rest/v1/listings?select=*&user_id=eq."+currentUser.id+"&order=created_at.desc", {
-    headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+tok }
+  var r = await fetch(SB_URL + "/rest/v1/listings?select=*&user_id=eq." + currentUser.id + "&order=created_at.desc", {
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok }
   });
-  var data = await r.json(); data = Array.isArray(data)?data:[];
+  var data = await r.json(); data = Array.isArray(data) ? data : [];
   if (!data.length) {
-    el.innerHTML = '<div class="empty-state"><i class="ti ti-home-off"></i><h3>Sem anúncios</h3><p>Publique o seu primeiro imóvel.</p><br><button class="btn btn-primary" onclick="showPage(\'post\')">Publicar</button></div>';
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-home-off"></i><h3>Sem an\u00fancios</h3><p>Publique o seu primeiro im\u00f3vel.</p><br><button class="btn btn-primary" onclick="showPage(\'post\')">Publicar</button></div>';
     return;
   }
-  el.innerHTML = '<div class="listings-table">' +
-    '<div class="table-header"><span>Imóvel</span><span>Cidade</span><span>Estado</span><span>Ações</span></div>' +
-    data.map(function(l){
-      return '<div class="table-row">' +
-        '<div><div style="font-weight:500">'+esc(l.title)+'</div><div style="font-size:12px;color:var(--muted)">€'+Number(l.price).toLocaleString("pt-PT")+'/mês</div></div>' +
-        '<div style="color:var(--muted);font-size:13px">'+esc(l.city||"")+'</div>' +
-        '<div><span class="status-badge">Activo</span></div>' +
-        '<div><button class="btn btn-sm btn-danger" onclick="deleteListing(\''+l.id+'\')"><i class="ti ti-trash"></i></button></div>' +
-      '</div>';
-    }).join("") + '</div>';
+  var table = document.createElement("div");
+  table.className = "listings-table";
+  var header = document.createElement("div");
+  header.className = "table-header";
+  header.style.gridTemplateColumns = "1fr 110px 90px 100px";
+  header.innerHTML = "<span>Im\u00f3vel</span><span>Cidade</span><span>Estado</span><span>A\u00e7\u00f5es</span>";
+  table.appendChild(header);
+  data.forEach(function(l) {
+    var row = document.createElement("div");
+    row.className = "table-row";
+    row.style.gridTemplateColumns = "1fr 110px 90px 100px";
+    var titleCell = document.createElement("div");
+    titleCell.innerHTML = '<div style="font-weight:500;font-size:13px">' + esc(l.title) + '</div><div style="font-size:12px;color:var(--muted)">\u20ac' + Number(l.price).toLocaleString("pt-PT") + '/m\u00eas</div>';
+    var cityCell = document.createElement("div");
+    cityCell.style.cssText = "color:var(--muted);font-size:13px";
+    cityCell.textContent = l.city || "";
+    var statusCell = document.createElement("div");
+    statusCell.innerHTML = '<span class="status-badge">Activo</span>';
+    var actionsCell = document.createElement("div");
+    actionsCell.style.cssText = "display:flex;gap:6px";
+    var editBtn = document.createElement("button");
+    editBtn.className = "btn btn-sm btn-outline";
+    editBtn.innerHTML = '<i class="ti ti-edit"></i>';
+    (function(listing) { editBtn.addEventListener("click", function() { openEditModal(listing); }); }(l));
+    var delBtn = document.createElement("button");
+    delBtn.className = "btn btn-sm btn-danger";
+    delBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    (function(id) { delBtn.addEventListener("click", function() { deleteListing(id); }); }(l.id));
+    actionsCell.appendChild(editBtn);
+    actionsCell.appendChild(delBtn);
+    row.appendChild(titleCell);
+    row.appendChild(cityCell);
+    row.appendChild(statusCell);
+    row.appendChild(actionsCell);
+    table.appendChild(row);
+  });
+  el.innerHTML = "";
+  el.appendChild(table);
 }
 
 async function deleteListing(id) {
@@ -1328,7 +1409,7 @@ async function submitListing() {
 
   var body = {
     user_id:currentUser.id, title:g("f-title"), description:g("f-desc")||null,
-    price:parseFloat(g("f-price")), property_type:g("f-type"), typology:g("f-typology")||null,
+    price:parseFloat(g("f-price")), property_type:g("f-type"), typology: (parseInt(g("f-bedrooms")) === 0 ? "T0" : "T" + parseInt(g("f-bedrooms"))),
     bedrooms:parseInt(g("f-bedrooms")), bathrooms:parseInt(g("f-bathrooms")),
     area:g("f-area")?parseFloat(g("f-area")):null,
     address:g("f-address"), city:g("f-city"), postal_code:g("f-postal")||null,
@@ -1415,6 +1496,98 @@ function handleHash() {
   }
 }
 window.addEventListener("hashchange", handleHash);
+
+// ── EDIT LISTING ─────────────────────────────────────────────────────────
+var editingListingId = null;
+
+function openEditModal(listing) {
+  editingListingId = listing.id;
+  document.getElementById("e-title").value     = listing.title || "";
+  document.getElementById("e-type").value      = listing.property_type || "";
+  document.getElementById("e-bedrooms").value  = listing.bedrooms || 0;
+  document.getElementById("e-bathrooms").value = listing.bathrooms || 1;
+  document.getElementById("e-area").value      = listing.area || "";
+  document.getElementById("e-desc").value      = listing.description || "";
+  document.getElementById("e-address").value   = listing.address || "";
+  document.getElementById("e-city").value      = listing.city || "";
+  document.getElementById("e-postal").value    = listing.postal_code || "";
+  document.getElementById("e-price").value     = listing.price || "";
+  document.getElementById("e-available").value = listing.available_from || "";
+  document.getElementById("e-furnished").checked = !!listing.furnished;
+  document.getElementById("e-pets").checked      = !!listing.pets_allowed;
+  document.getElementById("e-parking").checked   = !!listing.parking;
+  document.getElementById("e-elevator").checked  = !!listing.elevator;
+  document.getElementById("e-balcony").checked   = !!listing.balcony;
+  document.getElementById("edit-msg").style.display = "none";
+  document.getElementById("edit-modal").classList.remove("hidden");
+}
+
+function closeEditModal() {
+  document.getElementById("edit-modal").classList.add("hidden");
+  editingListingId = null;
+}
+
+document.getElementById("edit-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+async function saveEdit() {
+  if (!editingListingId) return;
+  var btn = document.getElementById("edit-save-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> A guardar...';
+
+  var g = function(id) { return document.getElementById(id).value.trim(); };
+  if (!g("e-title") || !g("e-type") || !g("e-city") || !g("e-price")) {
+    var msg = document.getElementById("edit-msg");
+    msg.textContent = "Preencha os campos obrigatórios.";
+    msg.className = "auth-msg error"; msg.style.display = "";
+    btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Guardar alterações';
+    return;
+  }
+
+  var beds = parseInt(g("e-bedrooms"));
+  var updates = {
+    title:          g("e-title"),
+    property_type:  g("e-type"),
+    typology:       beds === 0 ? "T0" : "T" + beds,
+    bedrooms:       beds,
+    bathrooms:      parseInt(g("e-bathrooms")),
+    area:           g("e-area") ? parseFloat(g("e-area")) : null,
+    description:    g("e-desc") || null,
+    address:        g("e-address") || null,
+    city:           g("e-city"),
+    postal_code:    g("e-postal") || null,
+    price:          parseFloat(g("e-price")),
+    available_from: document.getElementById("e-available").value || null,
+    furnished:      document.getElementById("e-furnished").checked,
+    pets_allowed:   document.getElementById("e-pets").checked,
+    parking:        document.getElementById("e-parking").checked,
+    elevator:       document.getElementById("e-elevator").checked,
+    balcony:        document.getElementById("e-balcony").checked
+  };
+
+  var tok = await getAccessToken();
+  var r = await fetch(SB_URL + "/rest/v1/listings?id=eq." + editingListingId, {
+    method: "PATCH",
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify(updates)
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-check"></i> Guardar alterações';
+
+  if (r.ok) {
+    showToast("Anúncio actualizado!");
+    closeEditModal();
+    loadMyListings();
+    fetchListings();
+  } else {
+    var msg = document.getElementById("edit-msg");
+    msg.textContent = "Erro ao guardar. Tente novamente.";
+    msg.className = "auth-msg error"; msg.style.display = "";
+  }
+}
 
 // ── PROFILE MODAL ────────────────────────────────────────────────────────
 var pendingAvatarFile = null;
