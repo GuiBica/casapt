@@ -96,6 +96,17 @@
     .listing-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s, border-color 0.2s; }
     .listing-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.1); border-color:var(--brand); }
     .card-img { height:180px; background:var(--brand-light); display:flex; align-items:center; justify-content:center; color:var(--brand); font-size:44px; overflow:hidden; position:relative; }
+    .card-img img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; transition:opacity 0.2s; }
+    .card-carousel-nav { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; opacity:0; transition:opacity 0.2s; z-index:3; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+    .card-img:hover .card-carousel-nav { opacity:1; }
+    .card-carousel-prev { left:8px; }
+    .card-carousel-next { right:8px; }
+    .card-carousel-dots { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); display:flex; gap:4px; opacity:0; transition:opacity 0.2s; z-index:3; }
+    .card-img:hover .card-carousel-dots { opacity:1; }
+    .card-carousel-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.6); border:none; padding:0; cursor:pointer; transition:background 0.15s; }
+    .card-carousel-dot.active { background:#fff; }
+    .card-img-count { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.5); color:#fff; font-size:11px; font-weight:500; padding:2px 7px; border-radius:20px; z-index:3; opacity:0; transition:opacity 0.2s; }
+    .card-img:hover .card-img-count { opacity:1; }
     .card-img img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
     .card-img .card-icon { position:relative; z-index:1; }
     .card-fav { position:absolute; top:10px; right:10px; background:white; border:1px solid var(--border); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; z-index:2; }
@@ -688,6 +699,7 @@ var currentUser = null, currentProfile = null, currentListing = null;
 var favouriteIds = new Set(), pendingImages = [];
 var selectedRole = "landlord";
 
+var carouselData = {};
 var PT  = { apartment:"Apartamento", house:"Moradia", studio:"Estúdio", room:"Quarto" };
 var ICO = { apartment:"ti-building", house:"ti-home", studio:"ti-door", room:"ti-bed" };
 var REGIONS = {
@@ -798,15 +810,78 @@ async function fetchListings() {
 function renderListings(list) {
   var s = document.getElementById("stats-text");
   s.innerHTML = "<strong>" + list.length + "</strong> anúncio" + (list.length!==1?"s":"") + " encontrado" + (list.length!==1?"s":"");
-  var c = document.getElementById("listings-container");
+  var container = document.getElementById("listings-container");
   if (!list.length) {
-    c.innerHTML = '<div class="empty-state"><i class="ti ti-home-off"></i><h3>Nenhum anúncio</h3><p>Tente outros filtros.</p></div>';
+    container.innerHTML = '<div class="empty-state"><i class="ti ti-home-off"></i><h3>Nenhum anúncio</h3><p>Tente outros filtros.</p></div>';
     return;
   }
-  c.innerHTML = '<div class="listings-grid">' + list.map(cardHTML).join("") + '</div>';
+  container.innerHTML = '<div class="listings-grid">' + list.map(cardHTML).join("") + '</div>';
+  wireCarousels(container, list);
+}
+
+function wireCarousels(container, listings) {
+  // Build listing map for quick lookup
+  var listingMap = {};
+  listings.forEach(function(l) { listingMap[l.id] = l; });
+
+  // Wire card click -> openDetail (excluding carousel buttons and fav button)
+  container.querySelectorAll(".listing-card").forEach(function(card) {
+    var id = card.dataset.id;
+    card.addEventListener("click", function(e) {
+      if (e.target.closest(".card-carousel-nav") || e.target.closest(".card-fav") || e.target.closest(".card-carousel-dot")) return;
+      openDetail(id);
+    });
+  });
+
+  // Wire fav buttons
+  container.querySelectorAll(".card-fav").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      toggleFav(e, btn.dataset.id);
+    });
+  });
+
+  // Wire carousel navigation
+  container.querySelectorAll(".card-img").forEach(function(imgDiv) {
+    var lid = imgDiv.dataset.id;
+    var data = carouselData[lid] || { imgs: [], total: 0 };
+    var imgs = data.imgs;
+    if (imgs.length <= 1) return;
+    var idx = 0;
+
+    function updateCard() {
+      var imgEl = imgDiv.querySelector(".card-main-img");
+      if (imgEl) imgEl.src = imgs[idx];
+      imgDiv.dataset.idx = idx;
+      imgDiv.querySelectorAll(".card-carousel-dot").forEach(function(d, i) {
+        d.classList.toggle("active", i === idx);
+      });
+      var countEl = imgDiv.querySelector(".card-img-count");
+      if (countEl) countEl.textContent = (idx+1) + " / " + imgs.length + (data.total > 3 ? "+" : "");
+    }
+
+    imgDiv.querySelectorAll(".card-carousel-nav").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var dir = parseInt(btn.dataset.dir);
+        idx = (idx + dir + imgs.length) % imgs.length;
+        updateCard();
+      });
+    });
+
+    imgDiv.querySelectorAll(".card-carousel-dot").forEach(function(dot) {
+      dot.addEventListener("click", function(e) {
+        e.stopPropagation();
+        idx = parseInt(dot.dataset.dot);
+        updateCard();
+      });
+    });
+  });
 }
 
 function cardHTML(l) {
+  // We'll build the card element directly to avoid quote hell
+  // Return a placeholder, then hydrate via buildCards()
   var icon = ICO[l.property_type] || "ti-home";
   var price = Number(l.price).toLocaleString("pt-PT");
   var label = l.typology || PT[l.property_type] || "";
@@ -815,14 +890,31 @@ function cardHTML(l) {
   var tags  = [label, beds, area].filter(Boolean);
   var extra = [l.furnished?"Mobilado":"", l.pets_allowed?"Animais":"", l.parking?"Garagem":""].filter(Boolean);
   var isFav = favouriteIds.has(l.id);
-  var imgHTML = (l.images && l.images.length)
-    ? '<img src="' + l.images[0] + '" alt="" onerror="this.style.display=\'none\'">'
-    : '<i class="ti ' + icon + ' card-icon" style="font-size:44px"></i>';
   var favHTML = (currentUser && currentProfile && currentProfile.role === "tenant")
-    ? '<div class="card-fav ' + (isFav?"active":"") + '" onclick="toggleFav(event,\'' + l.id + '\')"><i class="ti ' + (isFav?"ti-heart-filled":"ti-heart") + '"></i></div>'
+    ? '<div class="card-fav ' + (isFav?"active":"") + '" data-id="' + l.id + '"><i class="ti ' + (isFav?"ti-heart-filled":"ti-heart") + '"></i></div>'
     : "";
-  return '<div class="listing-card" onclick="openDetail(\'' + l.id + '\')">' +
-    '<div class="card-img">' + imgHTML + favHTML + '</div>' +
+
+  // Images: max 3 for preview
+  var imgs = (l.images && l.images.length) ? l.images.slice(0, 3) : [];
+  carouselData[l.id] = { imgs: imgs, total: (l.images && l.images.length) || 0 };
+  var imgSection = "";
+  if (imgs.length) {
+    imgSection = '<img class="card-main-img" src="' + imgs[0] + '" alt="" data-idx="0">';
+    if (imgs.length > 1) {
+      imgSection +=
+        '<button class="card-carousel-nav card-carousel-prev" data-dir="-1"><i class="ti ti-chevron-left"></i></button>' +
+        '<button class="card-carousel-nav card-carousel-next" data-dir="1"><i class="ti ti-chevron-right"></i></button>' +
+        '<div class="card-carousel-dots">' + imgs.map(function(_, i) {
+          return '<button class="card-carousel-dot' + (i===0?" active":"") + '" data-dot="' + i + '"></button>';
+        }).join("") + '</div>' +
+        '<div class="card-img-count">1 / ' + imgs.length + (l.images.length > 3 ? '+' : '') + '</div>';
+    }
+  } else {
+    imgSection = '<i class="ti ' + icon + ' card-icon" style="font-size:44px"></i>';
+  }
+
+  return '<div class="listing-card" data-id="' + l.id + '">' +
+    '<div class="card-img" data-id="' + l.id + '" data-idx="0">' + imgSection + favHTML + '</div>' +
     '<div class="card-body">' +
       '<div class="card-price">€' + price + '<span> / mês</span></div>' +
       '<div class="card-title">' + esc(l.title) + '</div>' +
@@ -833,6 +925,8 @@ function cardHTML(l) {
       '</div>' +
     '</div></div>';
 }
+
+
 
 // ── DETAIL ────────────────────────────────────────────────────────────────
 function openDetail(id) {
