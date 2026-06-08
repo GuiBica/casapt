@@ -78,6 +78,18 @@
     .price-inputs input { flex:1; min-width:0; }
     .price-sep { color:var(--muted); flex-shrink:0; }
     .listings-results { min-width:0; }
+    /* LIST/MAP TOGGLE */
+    .view-toggle { display:flex; align-items:center; gap:8px; }
+    .toggle-btn { display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--radius); font-size:13px; font-weight:500; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-family:inherit; transition:all 0.15s; }
+    .toggle-btn.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .toggle-btn:hover:not(.active) { background:var(--surface); color:var(--text); }
+    /* INLINE MAP */
+    .listings-map-container { display:none; height:calc(100vh - 170px); position:relative; }
+    .listings-map-container.active { display:flex; }
+    #listings-map { flex:1; }
+    .map-listings-panel { width:340px; background:var(--bg); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+    .map-listings-panel-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; font-weight:600; color:var(--muted); flex-shrink:0; }
+    .map-listings-panel-list { flex:1; overflow-y:auto; padding:8px; }
     .stats-bar { padding:12px 20px; background:var(--surface); border-bottom:1px solid var(--border); font-size:13px; color:var(--muted); }
     /* CARDS */
     .listings-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:20px; padding:20px; }
@@ -443,9 +455,22 @@
       </div>
     </aside>
     <div class="listings-results">
-      <div class="stats-bar" id="stats-bar">A carregar...</div>
+      <div class="stats-bar" id="stats-bar" style="display:flex;align-items:center;justify-content:space-between">
+        <span id="stats-text">A carregar...</span>
+        <div class="view-toggle">
+          <button class="toggle-btn active" id="btn-list" onclick="setView('list')"><i class="ti ti-list"></i> Lista</button>
+          <button class="toggle-btn" id="btn-map" onclick="setView('map')"><i class="ti ti-map"></i> Mapa</button>
+        </div>
+      </div>
       <div id="listings-container">
         <div class="loading-state"><i class="ti ti-loader-2" style="font-size:32px;display:block;margin-bottom:12px"></i>A carregar anúncios...</div>
+      </div>
+      <div class="listings-map-container" id="listings-map-container">
+        <div id="listings-map"></div>
+        <div class="map-listings-panel">
+          <div class="map-listings-panel-header" id="map-panel-header">A carregar...</div>
+          <div class="map-listings-panel-list" id="map-panel-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -771,7 +796,7 @@ async function fetchListings() {
 
 // ── RENDER ────────────────────────────────────────────────────────────────
 function renderListings(list) {
-  var s = document.getElementById("stats-bar");
+  var s = document.getElementById("stats-text");
   s.innerHTML = "<strong>" + list.length + "</strong> anúncio" + (list.length!==1?"s":"") + " encontrado" + (list.length!==1?"s":"");
   var c = document.getElementById("listings-container");
   if (!list.length) {
@@ -1384,7 +1409,11 @@ function getCurrentFiltered() {
     return mQ&&mT&&mB&&mP&&mA&&mF&&mC;
   });
 }
-function filterListings() { renderListings(getCurrentFiltered()); }
+function filterListings() {
+  var filtered = getCurrentFiltered();
+  renderListings(filtered);
+  if (currentView === "map" && listingsInlineMap) updateInlineMap(filtered);
+}
 function setFilter(el, r) {
   cityFilter = r;
   document.querySelectorAll(".filter-chip").forEach(function(c){ c.classList.remove("active"); });
