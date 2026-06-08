@@ -849,22 +849,49 @@ function wireCarousels(container, listings) {
     if (imgs.length <= 1) return;
     var idx = 0;
 
+    // If more than 3 photos, add a virtual "see more" slide
+    var hasMore = data.total > imgs.length;
+    var totalSlides = hasMore ? imgs.length + 1 : imgs.length;
+
     function updateCard() {
       var imgEl = imgDiv.querySelector(".card-main-img");
-      if (imgEl) imgEl.src = imgs[idx];
+      var overlayEl = imgDiv.querySelector(".card-see-more");
+
+      if (idx < imgs.length) {
+        // Normal image slide
+        if (imgEl) imgEl.src = imgs[idx];
+        if (imgEl) imgEl.style.filter = "";
+        if (overlayEl) overlayEl.style.display = "none";
+      } else {
+        // "See more" virtual slide — blur last image + show overlay
+        if (imgEl) imgEl.src = imgs[imgs.length - 1];
+        if (imgEl) imgEl.style.filter = "blur(3px) brightness(0.5)";
+        if (overlayEl) overlayEl.style.display = "flex";
+      }
+
       imgDiv.dataset.idx = idx;
       imgDiv.querySelectorAll(".card-carousel-dot").forEach(function(d, i) {
         d.classList.toggle("active", i === idx);
       });
       var countEl = imgDiv.querySelector(".card-img-count");
-      if (countEl) countEl.textContent = (idx+1) + " / " + imgs.length + (data.total > 3 ? "+" : "");
+      if (countEl) {
+        if (idx < imgs.length) {
+          countEl.textContent = (idx+1) + " / " + data.total;
+        } else {
+          countEl.textContent = "+" + (data.total - imgs.length) + " fotos";
+        }
+      }
     }
 
     imgDiv.querySelectorAll(".card-carousel-nav").forEach(function(btn) {
       btn.addEventListener("click", function(e) {
         e.stopPropagation();
         var dir = parseInt(btn.dataset.dir);
-        idx = (idx + dir + imgs.length) % imgs.length;
+        var next = idx + dir;
+        // Allow going to see-more slide (idx === imgs.length) but not wrapping past it
+        if (next < 0) next = totalSlides - 1;
+        if (next >= totalSlides) next = 0;
+        idx = next;
         updateCard();
       });
     });
@@ -872,10 +899,25 @@ function wireCarousels(container, listings) {
     imgDiv.querySelectorAll(".card-carousel-dot").forEach(function(dot) {
       dot.addEventListener("click", function(e) {
         e.stopPropagation();
-        idx = parseInt(dot.dataset.dot);
+        var newIdx = parseInt(dot.dataset.dot);
+        if (hasMore && newIdx === imgs.length - 1 && idx === imgs.length - 1) {
+          idx = imgs.length;
+        } else {
+          idx = newIdx;
+        }
         updateCard();
       });
     });
+
+    // Click on see-more overlay opens the listing detail
+    var seeMore = imgDiv.querySelector(".card-see-more");
+    if (seeMore) {
+      seeMore.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var card = imgDiv.closest(".listing-card");
+        if (card) openDetail(card.dataset.id);
+      });
+    }
   });
 }
 
@@ -914,7 +956,9 @@ function cardHTML(l) {
   }
 
   return '<div class="listing-card" data-id="' + l.id + '">' +
-    '<div class="card-img" data-id="' + l.id + '" data-idx="0">' + imgSection + favHTML + '</div>' +
+    '<div class="card-img" data-id="' + l.id + '" data-idx="0">' + imgSection + favHTML +
+    (imgs.length > 0 && (l.images && l.images.length > 3) ? '<div class="card-see-more" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:4;cursor:pointer;gap:8px"><i class="ti ti-eye" style="font-size:28px"></i><span style="font-size:13px;font-weight:600">Ver todas as fotos</span><span style="font-size:12px;opacity:0.8">+' + ((l.images && l.images.length) - 3) + ' fotos</span></div>' : '') +
+    '</div>' +
     '<div class="card-body">' +
       '<div class="card-price">€' + price + '<span> / mês</span></div>' +
       '<div class="card-title">' + esc(l.title) + '</div>' +
