@@ -290,6 +290,21 @@
       .form-row, .form-row.triple { grid-template-columns:1fr; }
       .hero h1 { font-size:26px; }
     }
+
+    /* LIGHTBOX */
+    .lightbox-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.93); z-index:9999; display:none; align-items:center; justify-content:center; }
+    .lightbox-overlay.active { display:flex; }
+    .lightbox-img { max-width:92vw; max-height:88vh; object-fit:contain; border-radius:4px; display:block; }
+    .lightbox-close { position:fixed; top:16px; right:20px; background:rgba(255,255,255,0.15); border:none; color:#fff; width:42px; height:42px; border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:10000; }
+    .lightbox-close:hover { background:rgba(255,255,255,0.3); }
+    .lightbox-nav { position:fixed; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.15); border:none; color:#fff; width:48px; height:48px; border-radius:50%; font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:10000; }
+    .lightbox-nav:hover { background:rgba(255,255,255,0.3); }
+    .lightbox-prev { left:16px; }
+    .lightbox-next { right:16px; }
+    .lightbox-counter { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font-size:13px; z-index:10000; }
+    .lightbox-dots { position:fixed; bottom:36px; left:50%; transform:translateX(-50%); display:flex; gap:8px; z-index:10000; }
+    .lightbox-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.4); cursor:pointer; border:none; padding:0; }
+    .lightbox-dot.active { background:#fff; }
   </style>
 </head>
 <body>
@@ -545,7 +560,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- LIGHTBOX -->
-<div class="lightbox-overlay" id="lightbox" style="display:none" onclick="closeLightbox(event)">
+<div class="lightbox-overlay" id="lightbox">
   <button class="lightbox-close" onclick="closeLightbox()"><i class="ti ti-x"></i></button>
   <button class="lightbox-nav lightbox-prev" id="lb-prev" onclick="lbNav(-1);event.stopPropagation()"><i class="ti ti-chevron-left"></i></button>
   <div class="lightbox-inner">
@@ -1886,28 +1901,27 @@ async function sendReply(listingId, otherId, listingTitle, role) {
 var lbImages = [], lbIndex = 0;
 
 function openLightbox(images, startIndex) {
+  if (!images || !images.length) return;
   lbImages = images;
   lbIndex = startIndex || 0;
-  renderLightbox();
   var overlay = document.getElementById("lightbox");
-  overlay.style.display = "flex";
-  requestAnimationFrame(function() { overlay.classList.add("active"); });
+  renderLightbox();
+  overlay.classList.add("active");
   document.addEventListener("keydown", lbKeyHandler);
+  overlay.onclick = function(e) {
+    if (e.target === overlay) closeLightbox();
+  };
 }
 
-function closeLightbox(e) {
-  // Called directly (from X button or keyboard) or from overlay click
-  if (e && e.target && e.target !== document.getElementById("lightbox")) return;
-  var overlay = document.getElementById("lightbox");
-  overlay.classList.remove("active");
-  setTimeout(function() { overlay.style.display = "none"; }, 200);
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("active");
   document.removeEventListener("keydown", lbKeyHandler);
 }
 
 function lbKeyHandler(e) {
-  if (e.key === "ArrowLeft")  lbNav(-1);
-  if (e.key === "ArrowRight") lbNav(1);
-  if (e.key === "Escape")     closeLightbox({});
+  if (e.key === "ArrowLeft")  { lbIndex = (lbIndex - 1 + lbImages.length) % lbImages.length; renderLightbox(); }
+  if (e.key === "ArrowRight") { lbIndex = (lbIndex + 1) % lbImages.length; renderLightbox(); }
+  if (e.key === "Escape")     closeLightbox();
 }
 
 function lbNav(dir) {
@@ -1918,8 +1932,11 @@ function lbNav(dir) {
 function renderLightbox() {
   document.getElementById("lb-img").src = lbImages[lbIndex];
   document.getElementById("lb-counter").textContent = (lbIndex + 1) + " / " + lbImages.length;
-  document.getElementById("lb-prev").style.display = lbImages.length > 1 ? "" : "none";
-  document.getElementById("lb-next").style.display = lbImages.length > 1 ? "" : "none";
+
+  var prevBtn = document.getElementById("lb-prev");
+  var nextBtn = document.getElementById("lb-next");
+  if (prevBtn) prevBtn.style.display = lbImages.length > 1 ? "flex" : "none";
+  if (nextBtn) nextBtn.style.display = lbImages.length > 1 ? "flex" : "none";
 
   var dots = document.getElementById("lb-dots");
   dots.innerHTML = "";
@@ -1927,7 +1944,7 @@ function renderLightbox() {
     lbImages.forEach(function(_, i) {
       var d = document.createElement("button");
       d.className = "lightbox-dot" + (i === lbIndex ? " active" : "");
-      d.addEventListener("click", function(e) { e.stopPropagation(); lbIndex = i; renderLightbox(); });
+      (function(ii) { d.addEventListener("click", function(e) { e.stopPropagation(); lbIndex = ii; renderLightbox(); }); }(i));
       dots.appendChild(d);
     });
   }
