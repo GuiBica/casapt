@@ -84,8 +84,8 @@
     .toggle-btn.active { background:var(--brand); color:#fff; border-color:var(--brand); }
     .toggle-btn:hover:not(.active) { background:var(--surface); color:var(--text); }
     /* INLINE MAP */
-    .listings-map-container { display:none; height:calc(100vh - 170px); }
-    .listings-map-container.active { display:flex; flex-direction:row; }
+    .listings-map-container { display:none; }
+    .listings-map-container.active { display:flex; flex-direction:row; height:calc(100vh - 170px); width:100%; }
     #listings-map { flex:1; min-width:0; height:100%; }
     .map-listings-panel { width:340px; min-width:340px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; height:100%; }
     .map-listings-panel-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; font-weight:600; color:var(--text); flex-shrink:0; background:var(--bg); }
@@ -2151,12 +2151,25 @@ function setView(view) {
   currentView = view;
   document.getElementById("btn-list").classList.toggle("active", view === "list");
   document.getElementById("btn-map").classList.toggle("active", view === "map");
-  document.getElementById("listings-container").style.display = view === "list" ? "" : "none";
-  var mapContainer = document.getElementById("listings-map-container");
+
+  var listingsLayout = document.querySelector(".listings-layout");
+  var filterSidebar  = document.querySelector(".filter-sidebar");
+  var listingsResult = document.querySelector(".listings-results");
+  var mapContainer   = document.getElementById("listings-map-container");
+  var listContainer  = document.getElementById("listings-container");
+
   if (view === "map") {
+    // Hide sidebar + results, show full-width map
+    filterSidebar.style.display  = "none";
+    listContainer.style.display  = "none";
+    listingsLayout.style.gridTemplateColumns = "1fr";
     mapContainer.classList.add("active");
     setTimeout(function() { initInlineMap(getCurrentFiltered()); }, 50);
   } else {
+    // Restore list view
+    filterSidebar.style.display  = "";
+    listContainer.style.display  = "";
+    listingsLayout.style.gridTemplateColumns = "";
     mapContainer.classList.remove("active");
   }
 }
