@@ -2003,6 +2003,131 @@ function showToast(msg, err) {
 
 var mainMap = null, detailMap = null, mapMarkers = [], mapListings = [];
 
+// ── VIEW TOGGLE ──────────────────────────────────────────────────────────
+var currentView = "list";
+var listingsInlineMap = null;
+var inlineMarkers = [];
+
+function setView(view) {
+  currentView = view;
+  document.getElementById("btn-list").classList.toggle("active", view === "list");
+  document.getElementById("btn-map").classList.toggle("active", view === "map");
+  document.getElementById("listings-container").style.display = view === "list" ? "" : "none";
+  var mapContainer = document.getElementById("listings-map-container");
+  if (view === "map") {
+    mapContainer.classList.add("active");
+    setTimeout(function() { initInlineMap(getCurrentFiltered()); }, 50);
+  } else {
+    mapContainer.classList.remove("active");
+  }
+}
+
+function initInlineMap(listings) {
+  if (!window.L) { setTimeout(function(){ initInlineMap(listings); }, 200); return; }
+  if (!listingsInlineMap) {
+    listingsInlineMap = L.map("listings-map", { zoomControl: true }).setView([39.5, -8.0], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors", maxZoom: 19
+    }).addTo(listingsInlineMap);
+  }
+  setTimeout(function() { if (listingsInlineMap) listingsInlineMap.invalidateSize(); }, 100);
+  updateInlineMap(listings);
+}
+
+function updateInlineMap(listings) {
+  if (!listingsInlineMap) return;
+  inlineMarkers.forEach(function(m) { listingsInlineMap.removeLayer(m.marker); });
+  inlineMarkers = [];
+  var withCoords = listings.filter(function(l) { return l.latitude && l.longitude; });
+
+  var header = document.getElementById("map-panel-header");
+  var panelList = document.getElementById("map-panel-list");
+  if (header) header.textContent = withCoords.length + " imóvel" + (withCoords.length !== 1 ? "s" : "") + " no mapa";
+  if (panelList) panelList.innerHTML = "";
+
+  if (!withCoords.length) {
+    if (panelList) panelList.innerHTML = '<div class="empty-state" style="padding:30px 16px"><i class="ti ti-map-pin-off"></i><h3>Sem coordenadas</h3></div>';
+    return;
+  }
+
+  withCoords.forEach(function(l) {
+    var icon = L.divIcon({
+      className: "",
+      html: '<div style="background:#1D5C4A;color:#fff;padding:5px 9px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid #fff;cursor:pointer">€' + Number(l.price).toLocaleString("pt-PT") + '</div>',
+      iconAnchor: [30, 16]
+    });
+    var marker = L.marker([parseFloat(l.latitude), parseFloat(l.longitude)], { icon: icon }).addTo(listingsInlineMap);
+
+    // Popup via DOM
+    var popup = document.createElement("div");
+    popup.style.cssText = "font-family:-apple-system,sans-serif;min-width:160px";
+    if (l.images && l.images.length) {
+      var img = document.createElement("img");
+      img.src = l.images[0];
+      img.style.cssText = "width:100%;height:70px;object-fit:cover;border-radius:6px;margin-bottom:6px;display:block";
+      popup.appendChild(img);
+    }
+    var priceEl = document.createElement("div");
+    priceEl.style.cssText = "font-size:15px;font-weight:700;color:#1D5C4A";
+    priceEl.textContent = "€" + Number(l.price).toLocaleString("pt-PT") + "/mês";
+    popup.appendChild(priceEl);
+    var titleEl = document.createElement("div");
+    titleEl.style.cssText = "font-size:12px;margin:3px 0 6px";
+    titleEl.textContent = l.title || "";
+    popup.appendChild(titleEl);
+    var btn = document.createElement("button");
+    btn.textContent = "Ver anúncio";
+    btn.style.cssText = "width:100%;padding:6px;background:#1D5C4A;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer";
+    (function(listing) {
+      btn.addEventListener("click", function() {
+        listingsInlineMap.closePopup();
+        if (!allListings.find(function(x){ return x.id === listing.id; })) allListings.push(listing);
+        openDetail(listing.id);
+      });
+    }(l));
+    popup.appendChild(btn);
+    marker.bindPopup(popup, { maxWidth: 200 });
+    (function(listing) { marker.on("click", function() { highlightPanelItem(listing.id); }); }(l));
+    inlineMarkers.push({ id: l.id, marker: marker });
+
+    // Side panel card
+    if (!panelList) return;
+    var item = document.createElement("div");
+    item.className = "map-listing-item";
+    item.id = "inlineitem-" + l.id;
+    var thumb = document.createElement("div");
+    thumb.className = "map-listing-thumb";
+    if (l.images && l.images.length) {
+      var timg = document.createElement("img"); timg.src = l.images[0]; timg.alt = ""; thumb.appendChild(timg);
+    } else {
+      var ico = document.createElement("i"); ico.className = "ti " + (ICO[l.property_type] || "ti-home"); thumb.appendChild(ico);
+    }
+    var info = document.createElement("div");
+    info.className = "map-listing-info";
+    info.innerHTML = '<div class="map-listing-price">€' + Number(l.price).toLocaleString("pt-PT") + '<span style="font-size:11px;font-weight:400;color:var(--muted)">/mês</span></div>' +
+      '<div class="map-listing-title">' + esc(l.title) + '</div>' +
+      '<div class="map-listing-loc"><i class="ti ti-map-pin" style="font-size:11px"></i> ' + esc(l.city || "") + '</div>';
+    item.appendChild(thumb); item.appendChild(info);
+    (function(listing, mk) {
+      item.addEventListener("click", function() {
+        listingsInlineMap.flyTo([parseFloat(listing.latitude), parseFloat(listing.longitude)], 15, { duration: 0.6 });
+        setTimeout(function() { mk.openPopup(); }, 700);
+        highlightPanelItem(listing.id);
+      });
+    }(l, marker));
+    panelList.appendChild(item);
+  });
+
+  var bounds = L.latLngBounds(withCoords.map(function(l) { return [parseFloat(l.latitude), parseFloat(l.longitude)]; }));
+  listingsInlineMap.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function highlightPanelItem(id) {
+  document.querySelectorAll("#map-panel-list .map-listing-item").forEach(function(el) { el.classList.remove("active"); });
+  var el = document.getElementById("inlineitem-" + id);
+  if (el) { el.classList.add("active"); el.scrollIntoView({ behavior:"smooth", block:"nearest" }); }
+}
+
 function getPriceIcon(price, active) {
   if (!window.L) return null;
   return L.divIcon({
