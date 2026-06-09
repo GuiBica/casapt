@@ -1421,7 +1421,7 @@ async function loadMyListings() {
     row.className = "table-row";
     row.style.gridTemplateColumns = "1fr 110px 90px 100px";
     var titleCell = document.createElement("div");
-    titleCell.innerHTML = '<div style="font-weight:500;font-size:13px">' + esc(l.title) + '</div><div style="font-size:12px;color:var(--muted)">\u20ac' + Number(l.price).toLocaleString("pt-PT") + '/m\u00eas</div>';
+    titleCell.innerHTML = '<div style="font-weight:500;font-size:13px">' + esc(l.title) + '</div><div style="font-size:12px;color:var(--muted)">\u20ac' + Number(l.price).toLocaleString("pt-PT") + '</div>';
     var cityCell = document.createElement("div");
     cityCell.style.cssText = "color:var(--muted);font-size:13px";
     cityCell.textContent = l.city || "";
@@ -2196,7 +2196,7 @@ function updateInlineMap(listings) {
   withCoords.forEach(function(l) {
     var icon = L.divIcon({
       className: "",
-      html: '<div style="background:#1D5C4A;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.4);border:3px solid #fff;cursor:pointer;display:inline-block">€' + Number(l.price).toLocaleString("pt-PT") + '/mês</div>',
+      html: '<div style="background:#1D5C4A;color:#fff;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid #fff;cursor:pointer;display:inline-block">€' + Number(l.price).toLocaleString("pt-PT") + '</div>',
       iconSize: null,
       iconAnchor: null
     });
@@ -2276,7 +2276,7 @@ function getPriceIcon(price, active) {
   if (!window.L) return null;
   return L.divIcon({
     className: "",
-    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.4);border:3px solid #fff;cursor:pointer;display:inline-block">€' + Number(price).toLocaleString("pt-PT") + '/mês</div>',
+    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid #fff;cursor:pointer;display:inline-block">€' + Number(price).toLocaleString("pt-PT") + '</div>',
     iconSize: null,
     iconAnchor: null
   });
