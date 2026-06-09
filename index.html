@@ -2196,8 +2196,9 @@ function updateInlineMap(listings) {
   withCoords.forEach(function(l) {
     var icon = L.divIcon({
       className: "",
-      html: '<div style="background:#1D5C4A;color:#fff;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:800;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.4);border:3px solid #fff;cursor:pointer">€' + Number(l.price).toLocaleString("pt-PT") + '</div>',
-      iconAnchor: [30, 16]
+      html: '<div style="background:#1D5C4A;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.4);border:3px solid #fff;cursor:pointer;display:inline-block">€' + Number(l.price).toLocaleString("pt-PT") + '/mês</div>',
+      iconSize: null,
+      iconAnchor: null
     });
     var marker = L.marker([parseFloat(l.latitude), parseFloat(l.longitude)], { icon: icon }).addTo(listingsInlineMap);
 
@@ -2275,8 +2276,9 @@ function getPriceIcon(price, active) {
   if (!window.L) return null;
   return L.divIcon({
     className: "",
-    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid #fff;cursor:pointer">€' + Number(price).toLocaleString("pt-PT") + '</div>',
-    iconAnchor: [30, 16]
+    html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.4);border:3px solid #fff;cursor:pointer;display:inline-block">€' + Number(price).toLocaleString("pt-PT") + '/mês</div>',
+    iconSize: null,
+    iconAnchor: null
   });
 }
 
