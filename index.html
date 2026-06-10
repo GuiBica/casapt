@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>homie – Arrendamentos em Portugal</title>
-  <!-- build: v4 -->
+  <!-- build: v5 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -92,6 +92,9 @@
     .toggle-btn { display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--radius); font-size:13px; font-weight:500; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-family:inherit; transition:all 0.15s; }
     .toggle-btn.active { background:var(--brand); color:#fff; border-color:var(--brand); }
     .toggle-btn:hover:not(.active) { background:var(--surface); color:var(--text); }
+    /* SORT SELECT */
+    .sort-select { padding:7px 10px; border-radius:var(--radius); font-size:13px; font-weight:500; border:1px solid var(--border); background:var(--bg); color:var(--muted); cursor:pointer; font-family:inherit; outline:none; transition:border-color 0.15s, color 0.15s; }
+    .sort-select:focus, .sort-select:hover { border-color:var(--brand); color:var(--text); }
     /* INLINE MAP */
     .listings-map-container { display:none; }
     .listings-map-container.active { display:flex; flex-direction:row; height:calc(100vh - 170px); }
@@ -486,9 +489,17 @@
     <div class="listings-results">
       <div class="stats-bar" id="stats-bar" style="display:flex;align-items:center;justify-content:space-between">
         <span id="stats-text">A carregar...</span>
-        <div class="view-toggle">
-          <button class="toggle-btn active" id="btn-list" onclick="setView('list')"><i class="ti ti-list"></i> Lista</button>
-          <button class="toggle-btn" id="btn-map" onclick="setView('map')"><i class="ti ti-map"></i> Mapa</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <select class="sort-select" id="sort-select" onchange="filterListings()">
+            <option value="recent">Mais recentes</option>
+            <option value="price_asc">Preço ↑</option>
+            <option value="price_desc">Preço ↓</option>
+            <option value="area_desc">Maior área</option>
+          </select>
+          <div class="view-toggle">
+            <button class="toggle-btn active" id="btn-list" onclick="setView('list')"><i class="ti ti-list"></i> Lista</button>
+            <button class="toggle-btn" id="btn-map" onclick="setView('map')"><i class="ti ti-map"></i> Mapa</button>
+          </div>
         </div>
       </div>
       <div id="listings-container">
@@ -729,26 +740,19 @@ var REGIONS = {
   setubal: ["setúbal","almada","barreiro","seixal","montijo","sesimbra","palmela"]
 };
 
-// ── INIT: fetch listings immediately, then check auth ─────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", function() {
   fetchListings();
-  // Handle initial hash after listings load
   setTimeout(handleHash, 300);
   sb.auth.getSession().then(function(r) {
-    if (r.data && r.data.session) {
-      handleSession(r.data.session);
-    }
+    if (r.data && r.data.session) handleSession(r.data.session);
   });
   sb.auth.onAuthStateChange(function(event, session) {
     if (session) {
       handleSession(session);
-      if (event === "SIGNED_IN") {
-        closeAuth();
-        showToast("Bem-vindo!");
-      }
+      if (event === "SIGNED_IN") { closeAuth(); showToast("Bem-vindo!"); }
     } else {
-      currentUser = null; currentProfile = null;
-      updateNav();
+      currentUser = null; currentProfile = null; updateNav();
     }
   });
 });
@@ -762,7 +766,6 @@ async function handleSession(session) {
     var rows = await r.json();
     currentProfile = (Array.isArray(rows) && rows.length > 0) ? rows[0] : null;
 
-    // If no profile yet, check if we have pending data from registration
     if (!currentProfile) {
       var pending = localStorage.getItem("pending_profile");
       if (pending) {
@@ -774,7 +777,6 @@ async function handleSession(session) {
             body: JSON.stringify({ id: currentUser.id, role: pd.role, full_name: pd.full_name })
           });
           localStorage.removeItem("pending_profile");
-          // re-fetch profile
           var r2 = await fetch(SB_URL + "/rest/v1/profiles?select=*&id=eq." + currentUser.id, {
             headers: { "apikey": SB_ANON, "Authorization": "Bearer " + session.access_token }
           });
@@ -782,7 +784,6 @@ async function handleSession(session) {
           currentProfile = (Array.isArray(rows2) && rows2.length > 0) ? rows2[0] : null;
         } catch(pe) { console.warn("Profile create failed:", pe); }
       }
-      // Fallback: create a basic profile from user metadata
       if (!currentProfile && currentUser.user_metadata) {
         var meta = currentUser.user_metadata;
         await fetch(SB_URL+"/rest/v1/profiles", {
@@ -838,11 +839,9 @@ function renderListings(list) {
 }
 
 function wireCarousels(container, listings) {
-  // Build listing map for quick lookup
   var listingMap = {};
   listings.forEach(function(l) { listingMap[l.id] = l; });
 
-  // Wire card click -> openDetail (excluding carousel buttons and fav button)
   container.querySelectorAll(".listing-card").forEach(function(card) {
     var id = card.dataset.id;
     card.addEventListener("click", function(e) {
@@ -851,7 +850,6 @@ function wireCarousels(container, listings) {
     });
   });
 
-  // Wire fav buttons
   container.querySelectorAll(".card-fav").forEach(function(btn) {
     btn.addEventListener("click", function(e) {
       e.stopPropagation();
@@ -859,45 +857,35 @@ function wireCarousels(container, listings) {
     });
   });
 
-  // Wire carousel navigation
   container.querySelectorAll(".card-img").forEach(function(imgDiv) {
     var lid = imgDiv.dataset.id;
     var data = carouselData[lid] || { imgs: [], total: 0 };
     var imgs = data.imgs;
     if (imgs.length <= 1) return;
     var idx = 0;
-
-    // If more than 3 photos, add a virtual "see more" slide
     var hasMore = data.total > imgs.length;
     var totalSlides = hasMore ? imgs.length + 1 : imgs.length;
 
     function updateCard() {
       var imgEl = imgDiv.querySelector(".card-main-img");
       var overlayEl = imgDiv.querySelector(".card-see-more");
-
       if (idx < imgs.length) {
-        // Normal image slide
         if (imgEl) imgEl.src = imgs[idx];
         if (imgEl) imgEl.style.filter = "";
         if (overlayEl) overlayEl.style.display = "none";
       } else {
-        // "See more" virtual slide — blur last image + show overlay
         if (imgEl) imgEl.src = imgs[imgs.length - 1];
         if (imgEl) imgEl.style.filter = "blur(3px) brightness(0.5)";
         if (overlayEl) overlayEl.style.display = "flex";
       }
-
       imgDiv.dataset.idx = idx;
       imgDiv.querySelectorAll(".card-carousel-dot").forEach(function(d, i) {
         d.classList.toggle("active", i === idx);
       });
       var countEl = imgDiv.querySelector(".card-img-count");
       if (countEl) {
-        if (idx < imgs.length) {
-          countEl.textContent = (idx+1) + " / " + data.total;
-        } else {
-          countEl.textContent = "+" + (data.total - imgs.length) + " fotos";
-        }
+        if (idx < imgs.length) countEl.textContent = (idx+1) + " / " + data.total;
+        else countEl.textContent = "+" + (data.total - imgs.length) + " fotos";
       }
     }
 
@@ -906,7 +894,6 @@ function wireCarousels(container, listings) {
         e.stopPropagation();
         var dir = parseInt(btn.dataset.dir);
         var next = idx + dir;
-        // Allow going to see-more slide (idx === imgs.length) but not wrapping past it
         if (next < 0) next = totalSlides - 1;
         if (next >= totalSlides) next = 0;
         idx = next;
@@ -918,16 +905,12 @@ function wireCarousels(container, listings) {
       dot.addEventListener("click", function(e) {
         e.stopPropagation();
         var newIdx = parseInt(dot.dataset.dot);
-        if (hasMore && newIdx === imgs.length - 1 && idx === imgs.length - 1) {
-          idx = imgs.length;
-        } else {
-          idx = newIdx;
-        }
+        if (hasMore && newIdx === imgs.length - 1 && idx === imgs.length - 1) idx = imgs.length;
+        else idx = newIdx;
         updateCard();
       });
     });
 
-    // Click on see-more overlay opens the listing detail
     var seeMore = imgDiv.querySelector(".card-see-more");
     if (seeMore) {
       seeMore.addEventListener("click", function(e) {
@@ -940,8 +923,6 @@ function wireCarousels(container, listings) {
 }
 
 function cardHTML(l) {
-  // We'll build the card element directly to avoid quote hell
-  // Return a placeholder, then hydrate via buildCards()
   var icon = ICO[l.property_type] || "ti-home";
   var price = Number(l.price).toLocaleString("pt-PT");
   var label = l.typology || PT[l.property_type] || "";
@@ -954,7 +935,6 @@ function cardHTML(l) {
     ? '<div class="card-fav ' + (isFav?"active":"") + '" data-id="' + l.id + '"><i class="ti ' + (isFav?"ti-heart-filled":"ti-heart") + '"></i></div>'
     : "";
 
-  // Images: max 3 for preview
   var imgs = (l.images && l.images.length) ? l.images.slice(0, 3) : [];
   carouselData[l.id] = { imgs: imgs, total: (l.images && l.images.length) || 0 };
   var imgSection = "";
@@ -988,15 +968,12 @@ function cardHTML(l) {
     '</div></div>';
 }
 
-
-
 // ── DETAIL ────────────────────────────────────────────────────────────────
 function openDetail(id) {
   var l = allListings.find(function(x){ return x.id === id; });
   if (!l) return;
   currentListing = l;
 
-  // gallery
   var gallery = document.getElementById("detail-gallery");
   if (l.images && l.images.length) {
     gallery._imgs = l.images;
@@ -1029,11 +1006,8 @@ function openDetail(id) {
           dotsEl.appendChild(d);
         });
         gallery.appendChild(dotsEl);
-        // Hint text as part of dots area instead
       }
     })();
-
-    // Add click-to-expand on whole gallery as backup
     gallery.style.cursor = "zoom-in";
     gallery.addEventListener("click", function(e) {
       if (e.target === gallery) { openLightbox(gallery._imgs, gallery._idx); }
@@ -1043,7 +1017,7 @@ function openDetail(id) {
     gallery.innerHTML = '<i class="ti ' + icon + '" style="font-size:72px"></i>';
   }
 
-    document.getElementById("detail-title").textContent = l.title;
+  document.getElementById("detail-title").textContent = l.title;
   document.getElementById("detail-loc").textContent = [l.address, l.city, l.postal_code].filter(Boolean).join(", ");
 
   var stats = [];
@@ -1089,7 +1063,6 @@ function openDetail(id) {
     note.textContent = "";
   }
 
-  // track view
   fetch(SB_URL + "/rest/v1/listing_views", {
     method:"POST",
     headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+SB_ANON, "Content-Type":"application/json" },
@@ -1098,22 +1071,6 @@ function openDetail(id) {
 
   showPage("detail", l.id);
   setTimeout(function() { initDetailMap(l); }, 150);
-}
-
-function prevImg(id) {
-  var g = document.getElementById("detail-gallery");
-  g._idx = (g._idx - 1 + g._imgs.length) % g._imgs.length;
-  updateGallery(g);
-}
-function nextImg(id) {
-  var g = document.getElementById("detail-gallery");
-  g._idx = (g._idx + 1) % g._imgs.length;
-  updateGallery(g);
-}
-function updateGallery(g) {
-  g.querySelector("img").src = g._imgs[g._idx];
-  var dots = g.querySelectorAll(".gallery-dot");
-  dots.forEach(function(d,i){ d.classList.toggle("active", i===g._idx); });
 }
 
 // ── SEND MESSAGE ──────────────────────────────────────────────────────────
@@ -1273,10 +1230,8 @@ async function doRegister() {
       showMsg("reg-msg", m, true); return;
     }
 
-    // Store role in pending localStorage so we can save profile after email confirmation
     if (r.data && r.data.user) {
       localStorage.setItem("pending_profile", JSON.stringify({ id: r.data.user.id, role: selectedRole, full_name: name }));
-      // If session exists (email confirm disabled), save profile now
       if (r.data.session) {
         await fetch(SB_URL+"/rest/v1/profiles", {
           method:"POST",
@@ -1359,7 +1314,7 @@ async function loadOverview() {
   var myL = await r1.json(); myL = Array.isArray(myL) ? myL : [];
   var ids = myL.map(function(l) { return l.id; }).join(",");
 
-  var totalViews = 0, totalMsgs = 0, unread = 0, totalFavs = 0;
+  var totalViews = 0, totalMsgs = 0, totalFavs = 0;
   var viewsByListing = {}, favsByListing = {}, msgsByListing = {};
 
   if (ids) {
@@ -1376,7 +1331,6 @@ async function loadOverview() {
     var r4 = await fetch(SB_URL + "/rest/v1/messages?select=listing_id&listing_id=in.(" + ids + ")", { headers: h });
     var msgs = await r4.json(); msgs = Array.isArray(msgs) ? msgs : [];
     totalMsgs = msgs.length;
-    unread = 0; // read tracking not yet implemented
     msgs.forEach(function(m) { msgsByListing[m.listing_id] = (msgsByListing[m.listing_id] || 0) + 1; });
   }
 
@@ -1388,7 +1342,6 @@ async function loadOverview() {
     '<div class="stat-card"><div class="stat-card-label"><i class="ti ti-message"></i> Mensagens</div><div class="stat-card-value">' + totalMsgs + '</div></div>' +
     '</div>';
 
-  // Per-listing breakdown
   var tableHtml = "";
   if (myL.length) {
     tableHtml = '<h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Por anúncio</h3>' +
@@ -1475,32 +1428,6 @@ async function deleteListing(id) {
   showToast("Anúncio apagado."); loadMyListings(); loadOverview();
 }
 
-async function loadMessages() {
-  var el = document.getElementById("dash-messages");
-  el.innerHTML = '<div class="loading-state">A carregar...</div>';
-  var tok = await getAccessToken();
-  var h = { "apikey":SB_ANON, "Authorization":"Bearer "+tok };
-  var r1 = await fetch(SB_URL+"/rest/v1/listings?select=id,title&user_id=eq."+currentUser.id, { headers:h });
-  var myL = await r1.json(); myL = Array.isArray(myL)?myL:[];
-  if (!myL.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-off"></i><h3>Sem mensagens</h3></div>'; return; }
-  var map = {}; myL.forEach(function(l){ map[l.id]=l.title; });
-  var ids = myL.map(function(l){ return l.id; }).join(",");
-  var r2 = await fetch(SB_URL+"/rest/v1/messages?select=*&listing_id=in.("+ids+")&order=created_at.desc", { headers:h });
-  var msgs = await r2.json(); msgs = Array.isArray(msgs)?msgs:[];
-  if (!msgs.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-off"></i><h3>Sem mensagens ainda</h3></div>'; return; }
-  el.innerHTML = '<div class="message-list">' +
-    msgs.map(function(m){
-      return '<div class="message-card">' +
-        '<div class="message-meta">' +
-          '<div><div class="message-from">Arrendatário</div><div class="message-listing">'+esc(map[m.listing_id]||"")+'</div></div>' +
-          '<div class="message-date">'+new Date(m.created_at).toLocaleDateString("pt-PT")+'</div>' +
-        '</div>' +
-        '<div class="message-body">'+esc(m.message)+'</div></div>';
-    }).join("") + '</div>';
-  // mark as read
-  // mark as read - not yet implemented
-}
-
 async function loadFavsDash() {
   var el = document.getElementById("dash-favourites"); if(!el) return;
   el.innerHTML = '<div class="loading-state">A carregar...</div>';
@@ -1516,27 +1443,6 @@ async function loadFavsDash() {
   el.innerHTML = '<div class="fav-grid">' + (Array.isArray(data)?data:[]).map(cardHTML).join("") + '</div>';
 }
 
-async function loadSentMessages() {
-  var el = document.getElementById("dash-sent"); if(!el) return;
-  el.innerHTML = '<div class="loading-state">A carregar...</div>';
-  var tok = await getAccessToken();
-  var r = await fetch(SB_URL+"/rest/v1/messages?select=*,listings(title,city)&sender_id=eq."+currentUser.id+"&order=created_at.desc", {
-    headers:{ "apikey":SB_ANON, "Authorization":"Bearer "+tok }
-  });
-  var data = await r.json(); data = Array.isArray(data)?data:[];
-  if (!data.length) { el.innerHTML='<div class="empty-state"><i class="ti ti-message-forward"></i><h3>Sem mensagens enviadas</h3></div>'; return; }
-  el.innerHTML = '<div class="message-list">' +
-    data.map(function(m){
-      var t = m.listings?m.listings.title:"Imóvel"; var c = m.listings?m.listings.city:"";
-      return '<div class="message-card">' +
-        '<div class="message-meta">' +
-          '<div><div class="message-from">'+esc(t)+'</div><div class="message-listing">'+esc(c)+'</div></div>' +
-          '<div class="message-date">'+new Date(m.created_at).toLocaleDateString("pt-PT")+'</div>' +
-        '</div>' +
-        '<div class="message-body">'+esc(m.message)+'</div></div>';
-    }).join("") + '</div>';
-}
-
 // ── FILTERS ───────────────────────────────────────────────────────────────
 function getCurrentFiltered() {
   var q     = document.getElementById("search-input").value.toLowerCase().trim();
@@ -1550,7 +1456,8 @@ function getCurrentFiltered() {
   var fPk   = document.getElementById("f-chk-parking").checked;
   var fE    = document.getElementById("f-chk-elevator").checked;
   var fB    = document.getElementById("f-chk-balcony").checked;
-  return allListings.filter(function(l) {
+
+  var filtered = allListings.filter(function(l) {
     var mQ  = !q || [l.city,l.title,l.address,l.typology,l.description,l.postal_code].some(function(v){ return v&&v.toLowerCase().includes(q); });
     var mT  = !types.length || types.indexOf(l.property_type)!==-1;
     var mB  = !beds.length  || beds.some(function(b){ return b==="4"?l.bedrooms>=4:l.bedrooms===parseInt(b); });
@@ -1564,7 +1471,21 @@ function getCurrentFiltered() {
     }
     return mQ&&mT&&mB&&mP&&mA&&mF&&mC;
   });
+
+  // ── SORT ──────────────────────────────────────────────────────────────
+  var sortEl = document.getElementById("sort-select");
+  var sortVal = sortEl ? sortEl.value : "recent";
+  filtered.sort(function(a, b) {
+    if (sortVal === "price_asc")  return a.price - b.price;
+    if (sortVal === "price_desc") return b.price - a.price;
+    if (sortVal === "area_desc")  return (b.area || 0) - (a.area || 0);
+    // "recent" — newest first
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  return filtered;
 }
+
 function filterListings() {
   var filtered = getCurrentFiltered();
   renderListings(filtered);
@@ -1577,7 +1498,6 @@ function setFilter(el, r) {
 }
 
 function setFilterByName(heroChip, region) {
-  // Activate corresponding filter chip and scroll to listings
   document.querySelectorAll(".filter-chip").forEach(function(c){ c.classList.remove("active"); });
   var chip = Array.from(document.querySelectorAll(".filter-chip")).find(function(c){
     return c.getAttribute("onclick") && c.getAttribute("onclick").includes("'" + region + "'");
@@ -1585,13 +1505,15 @@ function setFilterByName(heroChip, region) {
   if (chip) { chip.classList.add("active"); }
   cityFilter = region;
   filterListings();
-  // Scroll to listings
   var el = document.querySelector(".filters");
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
 function clearFilters() {
   document.querySelectorAll(".filter-sidebar input[type='checkbox']").forEach(function(c){ c.checked=false; });
   ["price-min","price-max","area-min","search-input"].forEach(function(id){ document.getElementById(id).value=""; });
+  var sortEl = document.getElementById("sort-select");
+  if (sortEl) sortEl.value = "recent";
   setFilter(document.querySelector(".filter-chip"), "");
 }
 
@@ -1642,7 +1564,6 @@ async function submitListing() {
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> A publicar...';
   var tok = await getAccessToken();
 
-  // Geocode the address for map display
   var lat = null, lng = null;
   try {
     var geoQuery = [g("f-address"), g("f-city"), "Portugal"].filter(Boolean).join(", ");
@@ -1704,7 +1625,6 @@ function showPage(name, id) {
   document.querySelectorAll(".page").forEach(function(p){ p.classList.remove("active"); });
   document.getElementById("page-"+name).classList.add("active");
   window.scrollTo(0,0);
-  // Update URL hash for shareable links
   if (name === "listings")  { window.location.hash = ""; fetchListings(); }
   if (name === "detail" && id) { window.location.hash = "listing/" + id; }
   if (name === "dashboard") { window.location.hash = "dashboard"; showDashboard(); }
@@ -1713,22 +1633,17 @@ function showPage(name, id) {
   if (name === "post" && !currentUser) { showPage("listings"); openAuth("login"); }
 }
 
-// Handle hash on page load and back/forward
 function handleHash() {
   var hash = window.location.hash.replace("#", "");
   if (hash.indexOf("listing/") === 0) {
     var id = hash.replace("listing/", "");
-    // Wait for listings to load then open detail
     if (allListings.length) {
       openDetail(id);
     } else {
       fetch(SB_URL + "/rest/v1/listings?select=*&id=eq." + id, {
         headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON }
       }).then(function(r){ return r.json(); }).then(function(data){
-        if (data && data.length) {
-          allListings = data;
-          openDetail(id);
-        }
+        if (data && data.length) { allListings = data; openDetail(id); }
       });
     }
   } else if (hash === "dashboard") {
@@ -1743,7 +1658,7 @@ function handleHash() {
 }
 window.addEventListener("hashchange", handleHash);
 
-// ── EDIT LISTING ─────────────────────────────────────────────────────────
+// ── EDIT LISTING ──────────────────────────────────────────────────────────
 var editingListingId = null;
 
 function openEditModal(listing) {
@@ -1835,7 +1750,7 @@ async function saveEdit() {
   }
 }
 
-// ── PROFILE MODAL ────────────────────────────────────────────────────────
+// ── PROFILE MODAL ─────────────────────────────────────────────────────────
 var pendingAvatarFile = null;
 
 function openProfile() {
@@ -1880,7 +1795,6 @@ async function saveProfile() {
     bio:       document.getElementById("profile-bio").value.trim() || null
   };
 
-  // Upload avatar if changed
   if (pendingAvatarFile) {
     var ext  = pendingAvatarFile.name.split(".").pop();
     var path = currentUser.id+"/avatar."+ext;
@@ -1916,8 +1830,7 @@ async function saveProfile() {
   }
 }
 
-// ── MESSAGING SYSTEM ──────────────────────────────────────────────
-
+// ── MESSAGING SYSTEM ──────────────────────────────────────────────────────
 async function loadMessages() {
   var el = document.getElementById("dash-messages");
   el.innerHTML = '<div class="loading-state">A carregar...</div>';
@@ -1942,7 +1855,6 @@ async function loadMessages() {
     return;
   }
 
-  // Group by tenant+listing (tenant = whoever is NOT the landlord)
   var threads = {};
   msgs.forEach(function(m) {
     var tenantId = (m.sender_id === currentUser.id) ? m.receiver_id : m.sender_id;
@@ -2029,7 +1941,6 @@ async function openThread(elId, listingId, otherUserId, listingTitle, role) {
   var tok = await getAccessToken();
   var h = { "apikey": SB_ANON, "Authorization": "Bearer " + tok };
 
-  // Fetch ALL messages between these two users for this listing
   var url = SB_URL + "/rest/v1/messages?select=*&listing_id=eq." + listingId +
     "&or=(and(sender_id.eq." + currentUser.id + ",receiver_id.eq." + otherUserId +
     "),and(sender_id.eq." + otherUserId + ",receiver_id.eq." + currentUser.id + "))" +
@@ -2091,12 +2002,7 @@ async function doSendReply(ctx) {
   }
 }
 
-async function sendReply(listingId, otherId, listingTitle, role) {
-  doSendReply({ listingId: listingId, otherId: otherId, listingTitle: listingTitle, role: role,
-    elId: role === "landlord" ? "dash-messages" : "dash-sent" });
-}
-
-// ── LIGHTBOX ─────────────────────────────────────────────────────────────
+// ── LIGHTBOX ──────────────────────────────────────────────────────────────
 var lbImages = [], lbIndex = 0;
 
 function openLightbox(images, startIndex) {
@@ -2107,9 +2013,7 @@ function openLightbox(images, startIndex) {
   renderLightbox();
   overlay.classList.add("active");
   document.addEventListener("keydown", lbKeyHandler);
-  overlay.onclick = function(e) {
-    if (e.target === overlay) closeLightbox();
-  };
+  overlay.onclick = function(e) { if (e.target === overlay) closeLightbox(); };
 }
 
 function closeLightbox() {
@@ -2131,12 +2035,10 @@ function lbNav(dir) {
 function renderLightbox() {
   document.getElementById("lb-img").src = lbImages[lbIndex];
   document.getElementById("lb-counter").textContent = (lbIndex + 1) + " / " + lbImages.length;
-
   var prevBtn = document.getElementById("lb-prev");
   var nextBtn = document.getElementById("lb-next");
   if (prevBtn) prevBtn.style.display = lbImages.length > 1 ? "flex" : "none";
   if (nextBtn) nextBtn.style.display = lbImages.length > 1 ? "flex" : "none";
-
   var dots = document.getElementById("lb-dots");
   dots.innerHTML = "";
   if (lbImages.length > 1) {
@@ -2149,7 +2051,7 @@ function renderLightbox() {
   }
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────
+// ── UTILS ──────────────────────────────────────────────────────────────────
 function shareListingLink() {
   var url = window.location.origin + window.location.pathname + "#listing/" + currentListing.id;
   if (navigator.share) {
@@ -2170,10 +2072,8 @@ function showToast(msg, err) {
   setTimeout(function(){ t.classList.remove("show"); }, 3500);
 }
 
-
+// ── MAPS ───────────────────────────────────────────────────────────────────
 var mainMap = null, detailMap = null, mapMarkers = [], mapListings = [];
-
-// ── VIEW TOGGLE ──────────────────────────────────────────────────────────
 var currentView = "list";
 var listingsInlineMap = null;
 var inlineMarkers = [];
@@ -2182,10 +2082,8 @@ function setView(view) {
   currentView = view;
   document.getElementById("btn-list").classList.toggle("active", view === "list");
   document.getElementById("btn-map").classList.toggle("active", view === "map");
-
   var listContainer = document.getElementById("listings-container");
   var mapContainer  = document.getElementById("listings-map-container");
-
   if (view === "map") {
     listContainer.style.display = "none";
     mapContainer.classList.add("active");
@@ -2228,12 +2126,10 @@ function updateInlineMap(listings) {
     var icon = L.divIcon({
       className: "",
       html: '<div style="background:#1D5C4A;color:#fff;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid #fff;cursor:pointer;display:inline-block">€' + Number(l.price).toLocaleString("pt-PT") + '</div>',
-      iconSize: null,
-      iconAnchor: null
+      iconSize: null, iconAnchor: null
     });
     var marker = L.marker([parseFloat(l.latitude), parseFloat(l.longitude)], { icon: icon }).addTo(listingsInlineMap);
 
-    // Popup via DOM
     var popup = document.createElement("div");
     popup.style.cssText = "font-family:-apple-system,sans-serif;min-width:160px";
     if (l.images && l.images.length) {
@@ -2265,7 +2161,6 @@ function updateInlineMap(listings) {
     (function(listing) { marker.on("click", function() { highlightPanelItem(listing.id); }); }(l));
     inlineMarkers.push({ id: l.id, marker: marker });
 
-    // Side panel card
     if (!panelList) return;
     var item = document.createElement("div");
     item.className = "map-listing-item";
@@ -2308,34 +2203,29 @@ function getPriceIcon(price, active) {
   return L.divIcon({
     className: "",
     html: '<div style="background:' + (active ? "#D85A30" : "#1D5C4A") + ';color:#fff;padding:3px 8px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid #fff;cursor:pointer;display:inline-block">€' + Number(price).toLocaleString("pt-PT") + '</div>',
-    iconSize: null,
-    iconAnchor: null
+    iconSize: null, iconAnchor: null
   });
 }
 
 async function initMainMap() {
   if (!window.L) { setTimeout(initMainMap, 200); return; }
-
   var r = await fetch(SB_URL + "/rest/v1/listings?select=*&order=created_at.desc", {
     headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON }
   });
   var data = await r.json();
   mapListings = Array.isArray(data) ? data : [];
-
   if (mainMap) { mainMap.remove(); mainMap = null; }
   mainMap = L.map("main-map", { zoomControl: true }).setView([39.5, -8.0], 6);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     attribution: "© OpenStreetMap contributors", maxZoom: 19
   }).addTo(mainMap);
   setTimeout(function() { if (mainMap) mainMap.invalidateSize(); }, 100);
-
   renderMapListings(mapListings);
 }
 
 function renderMapListings(list) {
   mapMarkers.forEach(function(m) { if (mainMap) mainMap.removeLayer(m.marker); });
   mapMarkers = [];
-
   var withCoords = list.filter(function(l) { return l.latitude && l.longitude; });
   var sidebarEl = document.getElementById("map-listing-list");
   sidebarEl.innerHTML = "";
@@ -2346,11 +2236,9 @@ function renderMapListings(list) {
   }
 
   withCoords.forEach(function(l) {
-    // Map marker
     var icon = getPriceIcon(l.price, false);
     var marker = L.marker([parseFloat(l.latitude), parseFloat(l.longitude)], { icon: icon }).addTo(mainMap);
 
-    // Popup using DOM (avoids quote hell)
     var popup = document.createElement("div");
     popup.className = "map-popup";
     if (l.images && l.images.length) {
@@ -2380,20 +2268,15 @@ function renderMapListings(list) {
     marker.on("click", function() { highlightMapItem(l.id); });
     mapMarkers.push({ id: l.id, marker: marker });
 
-    // Sidebar item using DOM
     var item = document.createElement("div");
     item.className = "map-listing-item";
     item.id = "mapitem-" + l.id;
     var thumb = document.createElement("div");
     thumb.className = "map-listing-thumb";
     if (l.images && l.images.length) {
-      var timg = document.createElement("img");
-      timg.src = l.images[0]; timg.alt = "";
-      thumb.appendChild(timg);
+      var timg = document.createElement("img"); timg.src = l.images[0]; timg.alt = ""; thumb.appendChild(timg);
     } else {
-      var ico = document.createElement("i");
-      ico.className = "ti " + (ICO[l.property_type] || "ti-home");
-      thumb.appendChild(ico);
+      var ico = document.createElement("i"); ico.className = "ti " + (ICO[l.property_type] || "ti-home"); thumb.appendChild(ico);
     }
     item.appendChild(thumb);
     var info = document.createElement("div");
@@ -2487,7 +2370,6 @@ async function initDetailMap(listing) {
   L.marker([lat, lng], { icon: markerIcon }).addTo(detailMap).bindPopup(listing.city || "").openPopup();
   L.circle([lat, lng], { radius: 150, color: "#1D5C4A", fillColor: "#1D5C4A", fillOpacity: 0.1, weight: 1 }).addTo(detailMap);
 }
-
 </script>
 </body>
 </html>
