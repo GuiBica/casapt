@@ -397,11 +397,6 @@
   <div class="logo" onclick="showPage('listings')">
     <i class="ti ti-building"></i>frentaro
   </div>
-  <div style="display:flex;align-items:center;gap:4px;">
-    <button class="btn btn-sm" onclick="showPage('map')" style="color:var(--muted);border:none;background:none"><i class="ti ti-map"></i> Mapa</button>
-    <button class="btn btn-sm" onclick="showPage('como-funciona')" style="color:var(--muted);border:none;background:none">Como funciona</button>
-    <button class="btn btn-sm" onclick="showPage('sobre-nos')" style="color:var(--muted);border:none;background:none">Sobre nós</button>
-  </div>
   <div class="nav-actions" id="nav-actions">
     <button class="btn btn-sm btn-outline" onclick="openAuth('login')">Entrar</button>
     <button class="btn btn-sm btn-primary" onclick="openAuth('register')">Registar</button>
@@ -1861,15 +1856,18 @@ async function submitListing() {
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────
 function showPage(name, id) {
+  // Guard: post requires login
+  if (name === "post" && !currentUser) { openAuth("login"); return; }
   document.querySelectorAll(".page").forEach(function(p){ p.classList.remove("active"); });
   document.getElementById("page-"+name).classList.add("active");
   window.scrollTo(0,0);
-  if (name === "listings")  { window.location.hash = ""; fetchListings(); }
-  if (name === "detail" && id) { window.location.hash = "listing/" + id; }
-  if (name === "dashboard") { window.location.hash = "dashboard"; showDashboard(); }
-  if (name === "post")      { window.location.hash = "post"; }
-  if (name === "map")       { window.location.hash = "map"; setTimeout(initMainMap, 50); }
-  if (name === "post" && !currentUser) { showPage("listings"); openAuth("login"); }
+  if (name === "listings")      { window.location.hash = ""; fetchListings(); }
+  if (name === "detail" && id)  { window.location.hash = "listing/" + id; }
+  if (name === "dashboard")     { window.location.hash = "dashboard"; showDashboard(); }
+  if (name === "post")          { window.location.hash = "post"; }
+  if (name === "map")           { window.location.hash = "map"; setTimeout(initMainMap, 50); }
+  if (name === "sobre-nos")     { window.location.hash = "sobre-nos"; }
+  if (name === "como-funciona") { window.location.hash = "como-funciona"; }
 }
 
 function handleHash() {
@@ -1885,15 +1883,12 @@ function handleHash() {
         if (data && data.length) { allListings = data; openDetail(id); }
       });
     }
-  } else if (hash === "dashboard") {
-    showPage("dashboard");
-  } else if (hash === "post") {
-    showPage("post");
-  } else if (hash === "map") {
-    showPage("map");
-  } else {
-    showPage("listings");
-  }
+  } else if (hash === "dashboard")     { showPage("dashboard");
+  } else if (hash === "post")          { showPage("post");
+  } else if (hash === "map")           { showPage("map");
+  } else if (hash === "sobre-nos")     { showPage("sobre-nos");
+  } else if (hash === "como-funciona") { showPage("como-funciona");
+  } else { showPage("listings"); }
 }
 window.addEventListener("hashchange", handleHash);
 
@@ -2609,6 +2604,42 @@ async function initDetailMap(listing) {
   L.marker([lat, lng], { icon: markerIcon }).addTo(detailMap).bindPopup(listing.city || "").openPopup();
   L.circle([lat, lng], { radius: 150, color: "#1D5C4A", fillColor: "#1D5C4A", fillOpacity: 0.1, weight: 1 }).addTo(detailMap);
 }
+
+// ── FAQ TOGGLE ────────────────────────────────────────────────────────────
+function toggleFaq(el) {
+  var item = el.closest(".faq-item");
+  var isOpen = item.classList.contains("open");
+  document.querySelectorAll(".faq-item.open").forEach(function(i){ i.classList.remove("open"); });
+  if (!isOpen) item.classList.add("open");
+}
 </script>
+
+<!-- FOOTER -->
+<footer style="background:#085041;color:rgba(255,255,255,0.7);padding:40px 24px">
+  <div style="max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;align-items:start">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:8px"><i class="ti ti-building"></i>frentaro</div>
+      <div style="font-size:13px;line-height:1.7">Arrendamento directo entre proprietários e inquilinos em Portugal. Simples, transparente e sem comissões.</div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:rgba(255,255,255,0.45);margin-bottom:14px">Plataforma</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <a onclick="showPage('listings')" style="font-size:14px;color:rgba(255,255,255,0.7);cursor:pointer;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Ver anúncios</a>
+        <a onclick="showPage('listings');openAuth('register')" style="font-size:14px;color:rgba(255,255,255,0.7);cursor:pointer;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Publicar imóvel</a>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:rgba(255,255,255,0.45);margin-bottom:14px">Empresa</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <a onclick="showPage('sobre-nos')" style="font-size:14px;color:rgba(255,255,255,0.7);cursor:pointer;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Sobre nós</a>
+        <a onclick="showPage('como-funciona')" style="font-size:14px;color:rgba(255,255,255,0.7);cursor:pointer;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Como funciona</a>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:960px;margin:32px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,0.12);font-size:12px;text-align:center;color:rgba(255,255,255,0.35)">
+    © 2025 frentaro. Todos os direitos reservados.
+  </div>
+</footer>
+
 </body>
 </html>
