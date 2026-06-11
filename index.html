@@ -2890,46 +2890,76 @@ async function submitApplication() {
   var employment = document.getElementById("apply-employment").value;
   var salary     = document.getElementById("apply-salary").value;
   var message    = document.getElementById("apply-message").value.trim();
+  var msgEl      = document.getElementById("apply-msg");
+
+  // Reset message
+  msgEl.style.display = "none";
 
   if (!name || !email || !employment) {
-    var m = document.getElementById("apply-msg");
-    m.textContent = "Preencha nome, email e situação profissional.";
-    m.className = "auth-msg error"; m.style.display = "";
+    msgEl.textContent = "Preencha nome, email e situação profissional.";
+    msgEl.className = "auth-msg error"; msgEl.style.display = "";
     return;
   }
 
   var btn = document.getElementById("apply-submit-btn");
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> A enviar...';
 
-  var tok = await getAccessToken();
-  var r = await fetch(SB_URL + "/rest/v1/applications", {
-    method: "POST",
-    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok, "Content-Type": "application/json", "Prefer": "return=minimal" },
-    body: JSON.stringify({
-      listing_id:   currentListing.id,
-      landlord_id:  currentListing.user_id,
-      tenant_id:    currentUser.id,
-      name:         name,
-      email:        email,
-      employment:   employment,
-      salary:       salary ? parseFloat(salary) : null,
-      message:      message || null,
-      status:       "pending"
-    })
-  });
+  try {
+    var tok = await getAccessToken();
+    var r = await fetch(SB_URL + "/rest/v1/applications", {
+      method: "POST",
+      headers: {
+        "apikey": SB_ANON,
+        "Authorization": "Bearer " + tok,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        listing_id:  currentListing.id,
+        landlord_id: currentListing.user_id,
+        tenant_id:   currentUser.id,
+        name:        name,
+        email:       email,
+        employment:  employment,
+        salary:      salary ? parseFloat(salary) : null,
+        message:     message || null,
+        status:      "pending"
+      })
+    });
 
-  btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Enviar candidatura';
+    btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Enviar candidatura';
 
-  if (r.ok) {
-    closeApplyModal();
-    showToast("Candidatura enviada!");
-  } else {
-    var errText = await r.text();
-    var m = document.getElementById("apply-msg");
-    // Likely missing table — show helpful message
-    m.textContent = "Erro ao enviar. Verifique se a tabela 'applications' existe no Supabase.";
-    m.className = "auth-msg error"; m.style.display = "";
-    console.error("Application error:", errText);
+    if (r.ok) {
+      // Show success inside modal, then close after 1.5s
+      msgEl.textContent = "✓ Candidatura enviada com sucesso!";
+      msgEl.className = "auth-msg success"; msgEl.style.display = "";
+      btn.style.display = "none";
+      setTimeout(function() {
+        closeApplyModal();
+        btn.style.display = "";
+        showToast("Candidatura enviada!");
+      }, 1500);
+    } else {
+      var errData = {};
+      try { errData = await r.json(); } catch(e) {}
+      var errMsg = errData.message || errData.error || errData.hint || "";
+      if (r.status === 404 || errMsg.includes("relation") || errMsg.includes("does not exist")) {
+        msgEl.textContent = "Tabela 'applications' não encontrada. Crie-a no Supabase antes de continuar.";
+      } else if (r.status === 401 || r.status === 403) {
+        msgEl.textContent = "Sem permissão. Verifique as RLS policies da tabela 'applications'.";
+      } else if (errMsg) {
+        msgEl.textContent = "Erro: " + errMsg;
+      } else {
+        msgEl.textContent = "Erro ao enviar candidatura (HTTP " + r.status + "). Tente novamente.";
+      }
+      msgEl.className = "auth-msg error"; msgEl.style.display = "";
+      console.error("Application error:", r.status, errData);
+    }
+  } catch(e) {
+    btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Enviar candidatura';
+    msgEl.textContent = "Erro de ligação. Verifique a sua internet e tente novamente.";
+    msgEl.className = "auth-msg error"; msgEl.style.display = "";
+    console.error("Application fetch error:", e);
   }
 }
 
