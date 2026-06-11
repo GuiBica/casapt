@@ -389,6 +389,17 @@
       .static-body { padding:36px 16px 60px; }
       .step-item { grid-template-columns:44px 1fr; gap:14px; }
     }
+
+    /* ADDRESS AUTOCOMPLETE */
+    .address-wrap { position:relative; }
+    .address-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--bg); border:1px solid var(--brand); border-top:none; border-radius:0 0 var(--radius) var(--radius); box-shadow:0 8px 24px rgba(0,0,0,0.1); z-index:50; max-height:240px; overflow-y:auto; }
+    .address-suggestion { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--border); line-height:1.4; display:flex; align-items:flex-start; gap:8px; }
+    .address-suggestion:last-child { border-bottom:none; }
+    .address-suggestion:hover, .address-suggestion.focused { background:var(--brand-light); }
+    .address-suggestion i { color:var(--brand); flex-shrink:0; margin-top:1px; }
+    .address-suggestion-main { font-weight:500; color:var(--text); }
+    .address-suggestion-sub { font-size:12px; color:var(--muted); }
+    .address-loading { padding:10px 12px; font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; }
   </style>
 </head>
 <body>
@@ -638,7 +649,14 @@
     </div>
     <div class="form-section">
       <div class="section-title">Localização</div>
-      <div class="form-row single"><div class="fg"><label>Morada *</label><input type="text" id="f-address" placeholder="Rua, número, andar"></div></div>
+      <div class="form-row single"><div class="fg"><label>Morada *</label>
+        <div class="address-wrap">
+          <input type="text" id="f-address" placeholder="Rua, número" autocomplete="off" oninput="onAddressInput(this.value)">
+          <div class="address-suggestions" id="f-address-suggestions" style="display:none"></div>
+        </div>
+        <input type="hidden" id="f-lat">
+        <input type="hidden" id="f-lng">
+      </div></div>
       <div class="form-row">
         <div class="fg"><label>Cidade *</label><input type="text" id="f-city" placeholder="Lisboa"></div>
         <div class="fg"><label>Código postal</label><input type="text" id="f-postal" placeholder="1200-110"></div>
@@ -1869,11 +1887,15 @@ async function submitListing() {
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2"></i> A publicar...';
   var tok = await getAccessToken();
 
-  var lat = null, lng = null;
-  try {
-    var geo = await geocodeAddress(g("f-address"), g("f-city"), g("f-postal"));
-    if (geo) { lat = geo.lat; lng = geo.lng; }
-  } catch(e) { console.warn("Geocoding failed:", e); }
+  var lat = document.getElementById("f-lat").value ? parseFloat(document.getElementById("f-lat").value) : null;
+  var lng = document.getElementById("f-lng").value ? parseFloat(document.getElementById("f-lng").value) : null;
+  // Fallback geocode if user typed address without selecting a suggestion
+  if (!lat || !lng) {
+    try {
+      var geo = await geocodeAddress(g("f-address"), g("f-city"), g("f-postal"));
+      if (geo) { lat = geo.lat; lng = geo.lng; }
+    } catch(e) { console.warn("Geocoding failed:", e); }
+  }
 
   var body = {
     user_id:currentUser.id, title:g("f-title"), description:g("f-desc")||null,
@@ -1915,7 +1937,10 @@ async function submitListing() {
     }
   }
   pendingImages = []; renderPreviews();
-  ["f-title","f-typology","f-area","f-desc","f-address","f-city","f-postal","f-price","f-available"].forEach(function(id){ document.getElementById(id).value=""; });
+  ["f-title","f-typology","f-area","f-desc","f-address","f-city","f-postal","f-price","f-available"].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=""; });
+  document.getElementById("f-lat").value = "";
+  document.getElementById("f-lng").value = "";
+  document.getElementById("f-address-suggestions").style.display = "none";
   btn.disabled=false; btn.innerHTML='<i class="ti ti-send"></i> Publicar anúncio';
   showToast("Anúncio publicado!");
   setTimeout(function(){ showPage("dashboard"); }, 1000);
@@ -2637,13 +2662,9 @@ async function initDetailMap(listing) {
   var lng = listing.longitude ? parseFloat(listing.longitude) : null;
 
   if (!lat || !lng) {
-    var query = [listing.address, listing.city, "Portugal"].filter(Boolean).join(", ");
     try {
-      var r = await fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query) + "&limit=1", {
-        headers: { "User-Agent": "frentaro-pt/1.0" }
-      });
-      var geo = await r.json();
-      if (geo && geo.length) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+      var geo = await geocodeAddress(listing.address, listing.city, listing.postal_code);
+      if (geo) { lat = geo.lat; lng = geo.lng; }
     } catch(e) {}
   }
 
