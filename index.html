@@ -390,6 +390,26 @@
       .step-item { grid-template-columns:44px 1fr; gap:14px; }
     }
 
+    /* APPLICATIONS */
+    .app-modal { background:var(--bg); border-radius:var(--radius-lg); padding:28px; width:100%; max-width:460px; box-shadow:0 20px 60px rgba(0,0,0,0.2); max-height:90vh; overflow-y:auto; }
+    .app-modal h2 { font-size:18px; font-weight:700; margin-bottom:4px; }
+    .app-modal .subtitle { font-size:13px; color:var(--muted); margin-bottom:20px; }
+    .app-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; margin-bottom:12px; }
+    .app-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+    .app-card-name { font-size:15px; font-weight:600; }
+    .app-card-date { font-size:12px; color:var(--muted); }
+    .app-card-listing { font-size:12px; color:var(--muted); margin-bottom:10px; display:flex; align-items:center; gap:4px; }
+    .app-card-details { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .app-detail-pill { font-size:12px; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
+    .app-detail-pill i { color:var(--brand); font-size:12px; }
+    .app-card-msg { font-size:13px; color:#374151; line-height:1.6; background:var(--surface); border-radius:var(--radius); padding:10px 12px; }
+    .app-status { font-size:11px; font-weight:600; padding:2px 9px; border-radius:20px; }
+    .app-status.pending  { background:#FFF8E1; color:#B45309; }
+    .app-status.accepted { background:#E1F5EE; color:#0F6E56; }
+    .app-status.rejected { background:#FEF2F2; color:#DC2626; }
+    .app-actions { display:flex; gap:8px; margin-top:12px; }
+    .notif-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent); margin-left:6px; vertical-align:middle; }
+
     /* ADDRESS AUTOCOMPLETE */
     .address-wrap { position:relative; }
     .address-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--bg); border:1px solid var(--brand); border-top:none; border-radius:0 0 var(--radius) var(--radius); box-shadow:0 8px 24px rgba(0,0,0,0.1); z-index:50; max-height:240px; overflow-y:auto; }
@@ -875,6 +895,36 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- APPLICATION MODAL -->
+<div class="modal-overlay hidden" id="apply-modal">
+  <div class="app-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h2>Candidatar-me</h2>
+      <button class="btn btn-sm" onclick="closeApplyModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="subtitle" id="apply-listing-title"></div>
+    <div class="auth-msg" id="apply-msg"></div>
+    <div class="mfg"><label>Nome completo *</label><input type="text" id="apply-name" placeholder="O seu nome completo"></div>
+    <div class="mfg"><label>Email *</label><input type="email" id="apply-email" placeholder="email@exemplo.com"></div>
+    <div class="mfg"><label>Situação profissional *</label>
+      <select id="apply-employment" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:inherit;outline:none">
+        <option value="">Selecionar...</option>
+        <option value="employed">Trabalhador por conta de outrem</option>
+        <option value="self_employed">Trabalhador independente</option>
+        <option value="student">Estudante</option>
+        <option value="retired">Reformado</option>
+        <option value="other">Outro</option>
+      </select>
+    </div>
+    <div class="mfg"><label>Rendimento mensal líquido (€)</label><input type="number" id="apply-salary" placeholder="Ex: 1500"></div>
+    <div class="mfg"><label>Mensagem ao proprietário</label><textarea id="apply-message" placeholder="Apresente-se brevemente e diga porquê é um bom inquilino..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:inherit;resize:vertical;min-height:90px;outline:none"></textarea></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+      <button class="btn" onclick="closeApplyModal()">Cancelar</button>
+      <button class="btn btn-primary" id="apply-submit-btn" onclick="submitApplication()"><i class="ti ti-send"></i> Enviar candidatura</button>
+    </div>
+  </div>
+</div>
 
 <!-- LIGHTBOX -->
 <div class="lightbox-overlay" id="lightbox">
@@ -1378,7 +1428,10 @@ function openDetail(id) {
     actions.innerHTML =
       '<div class="contact-form">' +
       '<textarea id="msg-input" placeholder="Olá, tenho interesse no imóvel..."></textarea>' +
-      '<button class="btn btn-primary contact-btn" onclick="sendMessage()"><i class="ti ti-send"></i> Enviar mensagem</button>' +
+      '<div style="display:flex;gap:8px;margin-top:0">' +
+      '<button class="btn btn-primary contact-btn" style="flex:1" onclick="sendMessage()"><i class="ti ti-send"></i> Enviar mensagem</button>' +
+      '<button class="btn btn-outline contact-btn" style="flex:1" onclick="openApplyModal()"><i class="ti ti-file-cv"></i> Candidatar-me</button>' +
+      '</div>' +
       '</div>';
     note.textContent = "Resposta típica em menos de 24h.";
   } else {
@@ -1593,20 +1646,24 @@ async function showDashboard() {
     sidebar.innerHTML =
       '<div class="dash-nav-item active" onclick="dashTab(this,\'overview\')"><i class="ti ti-layout-dashboard"></i> Visão geral</div>' +
       '<div class="dash-nav-item" onclick="dashTab(this,\'mylistings\')"><i class="ti ti-home"></i> Os meus anúncios</div>' +
+      '<div class="dash-nav-item" onclick="dashTab(this,\'applications\')"><i class="ti ti-file-cv"></i> Candidaturas</div>' +
       '<div class="dash-nav-item" onclick="dashTab(this,\'messages\')"><i class="ti ti-message"></i> Mensagens</div>';
     content.innerHTML =
       '<div class="dash-header"><h2>Olá, '+esc(name.split(" ")[0])+'</h2><p>Gere os seus imóveis e contactos.</p></div>' +
       '<div id="dash-overview" class="dash-section active"></div>' +
       '<div id="dash-mylistings" class="dash-section"></div>' +
+      '<div id="dash-applications" class="dash-section"></div>' +
       '<div id="dash-messages" class="dash-section"></div>';
     loadOverview();
   } else {
     sidebar.innerHTML =
       '<div class="dash-nav-item active" onclick="dashTab(this,\'favourites\')"><i class="ti ti-heart"></i> Favoritos</div>' +
-      '<div class="dash-nav-item" onclick="dashTab(this,\'sent\')"><i class="ti ti-message-forward"></i> Mensagens enviadas</div>';
+      '<div class="dash-nav-item" onclick="dashTab(this,\'myapplications\')"><i class="ti ti-file-cv"></i> As minhas candidaturas</div>' +
+      '<div class="dash-nav-item" onclick="dashTab(this,\'sent\')"><i class="ti ti-message-forward"></i> Mensagens</div>';
     content.innerHTML =
       '<div class="dash-header"><h2>Olá, '+esc(name.split(" ")[0])+'</h2><p>Os seus imóveis favoritos e mensagens.</p></div>' +
       '<div id="dash-favourites" class="dash-section active"></div>' +
+      '<div id="dash-myapplications" class="dash-section"></div>' +
       '<div id="dash-sent" class="dash-section"></div>';
     loadFavsDash();
   }
@@ -1617,10 +1674,12 @@ function dashTab(el, tab) {
   el.classList.add("active");
   document.querySelectorAll(".dash-section").forEach(function(s){ s.classList.remove("active"); });
   document.getElementById("dash-"+tab).classList.add("active");
-  if (tab==="mylistings") loadMyListings();
-  if (tab==="messages")   loadMessages();
-  if (tab==="sent")       loadSentMessages();
-  if (tab==="favourites") loadFavsDash();
+  if (tab==="mylistings")    loadMyListings();
+  if (tab==="messages")      loadMessages();
+  if (tab==="sent")          loadSentMessages();
+  if (tab==="favourites")    loadFavsDash();
+  if (tab==="applications")  loadApplications();
+  if (tab==="myapplications") loadMyApplications();
 }
 
 async function getAccessToken() {
@@ -2710,36 +2769,24 @@ function onAddressInput(val) {
 async function _acFetch(val) {
   var box = document.getElementById("f-address-suggestions");
   try {
-    // Photon is an open geocoder based on OSM with no CORS issues
-    var url = "https://photon.komoot.io/api/?q=" + encodeURIComponent(val + " Portugal") + "&limit=5&lang=pt";
-    var r = await fetch(url);
-    var data = await r.json();
-    var features = (data && data.features) ? data.features : [];
+    var url = "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=pt&q=" + encodeURIComponent(val);
+    var r = await fetch(url, { headers: { "Accept": "application/json" } });
+    var results = await r.json();
 
-    features = features.filter(function(f) {
-      var p = f.properties || {};
-      return p.countrycode === "PT" || p.country === "Portugal" || p.country === "Portugália";
-    });
-
-    if (!features.length) {
+    if (!results || !results.length) {
       box.innerHTML = '<div class="address-loading"><i class="ti ti-map-pin-off"></i> Sem resultados.</div>';
       return;
     }
 
     box.innerHTML = "";
-    features.forEach(function(f) {
-      var p = f.properties;
-      var coords = f.geometry && f.geometry.coordinates;
-
-      // Build main line: street + housenumber
-      var street = p.street || p.name || "";
-      var num = p.housenumber || "";
-      var main = street + (num ? " " + num : "");
-      if (!main) main = p.name || "";
-
-      // Build sub line: city, postcode
-      var city = p.city || p.town || p.village || p.county || "";
-      var postcode = p.postcode || "";
+    results.forEach(function(item) {
+      var addr = item.address || {};
+      var road = addr.road || addr.pedestrian || addr.footway || addr.suburb || "";
+      var num  = addr.house_number || "";
+      var main = road + (num ? " " + num : "");
+      if (!main) main = item.display_name.split(",")[0];
+      var city     = addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
+      var postcode = addr.postcode || "";
       var sub = [city, postcode].filter(Boolean).join(", ");
 
       var div = document.createElement("div");
@@ -2747,22 +2794,17 @@ async function _acFetch(val) {
       div.innerHTML =
         '<i class="ti ti-map-pin"></i>' +
         '<div>' +
-          '<div class="address-suggestion-main">' + esc(main || sub) + '</div>' +
-          (sub && main ? '<div class="address-suggestion-sub">' + esc(sub) + '</div>' : '') +
+          '<div class="address-suggestion-main">' + esc(main) + '</div>' +
+          (sub ? '<div class="address-suggestion-sub">' + esc(sub) + '</div>' : '') +
         '</div>';
 
       div.addEventListener("mousedown", function(e) {
         e.preventDefault();
-        // Fill address
-        document.getElementById("f-address").value = main || p.name || "";
-        // Always autofill city and postcode
-        if (city) document.getElementById("f-city").value = city;
+        document.getElementById("f-address").value = main;
+        document.getElementById("f-city").value    = city;
         if (postcode) document.getElementById("f-postal").value = postcode;
-        // Save coords (photon: [lng, lat])
-        if (coords) {
-          document.getElementById("f-lng").value = coords[0];
-          document.getElementById("f-lat").value = coords[1];
-        }
+        document.getElementById("f-lat").value = item.lat;
+        document.getElementById("f-lng").value = item.lon;
         box.style.display = "none";
         box.innerHTML = "";
       });
@@ -2772,6 +2814,7 @@ async function _acFetch(val) {
 
   } catch(e) {
     box.innerHTML = '<div class="address-loading"><i class="ti ti-wifi-off"></i> Erro de ligação.</div>';
+    console.error("Autocomplete error:", e);
   }
 }
 
@@ -2809,6 +2852,226 @@ document.addEventListener("keydown", function(e) {
     box.style.display = "none";
   }
 });
+
+// ── APPLICATIONS ──────────────────────────────────────────────────────────
+var EMPLOYMENT_LABELS = {
+  employed: "Trabalhador por conta de outrem",
+  self_employed: "Trabalhador independente",
+  student: "Estudante",
+  retired: "Reformado",
+  other: "Outro"
+};
+
+function openApplyModal() {
+  if (!currentUser) { openAuth("register"); return; }
+  if (!currentListing) return;
+  // Pre-fill name and email from profile
+  document.getElementById("apply-name").value  = (currentProfile && currentProfile.full_name) || "";
+  document.getElementById("apply-email").value = currentUser.email || "";
+  document.getElementById("apply-employment").value = "";
+  document.getElementById("apply-salary").value = "";
+  document.getElementById("apply-message").value = "";
+  document.getElementById("apply-msg").style.display = "none";
+  document.getElementById("apply-listing-title").textContent = currentListing.title || "";
+  document.getElementById("apply-modal").classList.remove("hidden");
+}
+
+function closeApplyModal() {
+  document.getElementById("apply-modal").classList.add("hidden");
+}
+
+document.getElementById("apply-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeApplyModal();
+});
+
+async function submitApplication() {
+  var name       = document.getElementById("apply-name").value.trim();
+  var email      = document.getElementById("apply-email").value.trim();
+  var employment = document.getElementById("apply-employment").value;
+  var salary     = document.getElementById("apply-salary").value;
+  var message    = document.getElementById("apply-message").value.trim();
+
+  if (!name || !email || !employment) {
+    var m = document.getElementById("apply-msg");
+    m.textContent = "Preencha nome, email e situação profissional.";
+    m.className = "auth-msg error"; m.style.display = "";
+    return;
+  }
+
+  var btn = document.getElementById("apply-submit-btn");
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> A enviar...';
+
+  var tok = await getAccessToken();
+  var r = await fetch(SB_URL + "/rest/v1/applications", {
+    method: "POST",
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok, "Content-Type": "application/json", "Prefer": "return=minimal" },
+    body: JSON.stringify({
+      listing_id:   currentListing.id,
+      landlord_id:  currentListing.user_id,
+      tenant_id:    currentUser.id,
+      name:         name,
+      email:        email,
+      employment:   employment,
+      salary:       salary ? parseFloat(salary) : null,
+      message:      message || null,
+      status:       "pending"
+    })
+  });
+
+  btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Enviar candidatura';
+
+  if (r.ok) {
+    closeApplyModal();
+    showToast("Candidatura enviada!");
+  } else {
+    var errText = await r.text();
+    var m = document.getElementById("apply-msg");
+    // Likely missing table — show helpful message
+    m.textContent = "Erro ao enviar. Verifique se a tabela 'applications' existe no Supabase.";
+    m.className = "auth-msg error"; m.style.display = "";
+    console.error("Application error:", errText);
+  }
+}
+
+// Landlord: view all applications for their listings
+async function loadApplications() {
+  var el = document.getElementById("dash-applications");
+  el.innerHTML = '<div class="loading-state">A carregar...</div>';
+  var tok = await getAccessToken();
+  var h = { "apikey": SB_ANON, "Authorization": "Bearer " + tok };
+
+  // Get landlord's listing IDs
+  var r1 = await fetch(SB_URL + "/rest/v1/listings?select=id,title&user_id=eq." + currentUser.id, { headers: h });
+  var myListings = await r1.json(); myListings = Array.isArray(myListings) ? myListings : [];
+  if (!myListings.length) {
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-file-cv"></i><h3>Sem candidaturas</h3><p>Publique anúncios para receber candidaturas.</p></div>';
+    return;
+  }
+  var listingMap = {};
+  myListings.forEach(function(l) { listingMap[l.id] = l.title; });
+  var ids = myListings.map(function(l) { return l.id; }).join(",");
+
+  var r2 = await fetch(SB_URL + "/rest/v1/applications?select=*&listing_id=in.(" + ids + ")&order=created_at.desc", { headers: h });
+  var apps = await r2.json(); apps = Array.isArray(apps) ? apps : [];
+
+  if (!apps.length) {
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-file-cv"></i><h3>Sem candidaturas ainda</h3><p>As candidaturas aos seus imóveis aparecem aqui.</p></div>';
+    return;
+  }
+
+  el.innerHTML = '<h3 style="font-size:15px;font-weight:600;margin-bottom:16px">' + apps.length + ' candidatura' + (apps.length !== 1 ? 's' : '') + ' recebida' + (apps.length !== 1 ? 's' : '') + '</h3>';
+  apps.forEach(function(app) {
+    var card = document.createElement("div");
+    card.className = "app-card";
+    var statusLabel = { pending: "Pendente", accepted: "Aceite", rejected: "Rejeitado" }[app.status] || "Pendente";
+    var statusClass = app.status || "pending";
+    var date = new Date(app.created_at).toLocaleDateString("pt-PT");
+    var salaryHtml = app.salary ? '<div class="app-detail-pill"><i class="ti ti-coin-euro"></i> €' + Number(app.salary).toLocaleString("pt-PT") + '/mês</div>' : "";
+    card.innerHTML =
+      '<div class="app-card-header">' +
+        '<div><div class="app-card-name">' + esc(app.name) + '</div><div style="font-size:12px;color:var(--muted)">' + esc(app.email) + '</div></div>' +
+        '<span class="app-status ' + statusClass + '">' + statusLabel + '</span>' +
+      '</div>' +
+      '<div class="app-card-listing"><i class="ti ti-home" style="font-size:11px"></i> ' + esc(listingMap[app.listing_id] || "") + ' · ' + date + '</div>' +
+      '<div class="app-card-details">' +
+        '<div class="app-detail-pill"><i class="ti ti-briefcase"></i> ' + esc(EMPLOYMENT_LABELS[app.employment] || app.employment) + '</div>' +
+        salaryHtml +
+      '</div>' +
+      (app.message ? '<div class="app-card-msg">' + esc(app.message) + '</div>' : '') +
+      (app.status === "pending" ?
+        '<div class="app-actions">' +
+          '<button class="btn btn-sm btn-outline" style="color:#16a34a;border-color:#16a34a" onclick="updateApplicationStatus(\'' + app.id + '\',\'accepted\')"><i class="ti ti-check"></i> Aceitar</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="updateApplicationStatus(\'' + app.id + '\',\'rejected\')"><i class="ti ti-x"></i> Rejeitar</button>' +
+        '</div>' : ''
+      );
+    el.appendChild(card);
+  });
+}
+
+async function updateApplicationStatus(appId, status) {
+  var tok = await getAccessToken();
+  var r = await fetch(SB_URL + "/rest/v1/applications?id=eq." + appId, {
+    method: "PATCH",
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok, "Content-Type": "application/json" },
+    body: JSON.stringify({ status: status })
+  });
+  if (r.ok) {
+    showToast(status === "accepted" ? "Candidatura aceite." : "Candidatura rejeitada.");
+    loadApplications();
+  } else {
+    showToast("Erro ao actualizar.", true);
+  }
+}
+
+// Tenant: view their own applications
+async function loadMyApplications() {
+  var el = document.getElementById("dash-myapplications");
+  el.innerHTML = '<div class="loading-state">A carregar...</div>';
+  var tok = await getAccessToken();
+
+  var r = await fetch(SB_URL + "/rest/v1/applications?select=*&tenant_id=eq." + currentUser.id + "&order=created_at.desc", {
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok }
+  });
+  var apps = await r.json(); apps = Array.isArray(apps) ? apps : [];
+
+  if (!apps.length) {
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-file-cv"></i><h3>Sem candidaturas</h3><p>As suas candidaturas a imóveis aparecem aqui.</p><br><button class="btn btn-primary" onclick="showPage(\'listings\')">Ver anúncios</button></div>';
+    return;
+  }
+
+  // Fetch listing titles
+  var ids = apps.map(function(a) { return a.listing_id; }).join(",");
+  var r2 = await fetch(SB_URL + "/rest/v1/listings?select=id,title,city&id=in.(" + ids + ")", {
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON }
+  });
+  var listings = await r2.json(); listings = Array.isArray(listings) ? listings : [];
+  var listingMap = {};
+  listings.forEach(function(l) { listingMap[l.id] = l; });
+
+  el.innerHTML = '<h3 style="font-size:15px;font-weight:600;margin-bottom:16px">' + apps.length + ' candidatura' + (apps.length !== 1 ? 's' : '') + '</h3>';
+  apps.forEach(function(app) {
+    var l = listingMap[app.listing_id] || {};
+    var card = document.createElement("div");
+    card.className = "app-card";
+    var statusLabel = { pending: "Pendente", accepted: "Aceite", rejected: "Rejeitado" }[app.status] || "Pendente";
+    var statusClass = app.status || "pending";
+    var date = new Date(app.created_at).toLocaleDateString("pt-PT");
+    card.innerHTML =
+      '<div class="app-card-header">' +
+        '<div><div class="app-card-name">' + esc(l.title || "Imóvel") + '</div><div style="font-size:12px;color:var(--muted)">' + esc(l.city || "") + '</div></div>' +
+        '<span class="app-status ' + statusClass + '">' + statusLabel + '</span>' +
+      '</div>' +
+      '<div class="app-card-listing"><i class="ti ti-calendar" style="font-size:11px"></i> Enviada em ' + date + '</div>' +
+      '<div class="app-card-details">' +
+        '<div class="app-detail-pill"><i class="ti ti-briefcase"></i> ' + esc(EMPLOYMENT_LABELS[app.employment] || app.employment) + '</div>' +
+        (app.salary ? '<div class="app-detail-pill"><i class="ti ti-coin-euro"></i> €' + Number(app.salary).toLocaleString("pt-PT") + '/mês</div>' : '') +
+      '</div>' +
+      (app.message ? '<div class="app-card-msg">' + esc(app.message) + '</div>' : '');
+    // Allow tenant to withdraw pending application
+    if (app.status === "pending") {
+      var withdrawBtn = document.createElement("button");
+      withdrawBtn.className = "btn btn-sm btn-danger";
+      withdrawBtn.style.marginTop = "10px";
+      withdrawBtn.innerHTML = '<i class="ti ti-trash"></i> Retirar candidatura';
+      (function(id) {
+        withdrawBtn.addEventListener("click", function() { withdrawApplication(id); });
+      }(app.id));
+      card.appendChild(withdrawBtn);
+    }
+    el.appendChild(card);
+  });
+}
+
+async function withdrawApplication(appId) {
+  if (!confirm("Retirar esta candidatura?")) return;
+  var tok = await getAccessToken();
+  var r = await fetch(SB_URL + "/rest/v1/applications?id=eq." + appId, {
+    method: "DELETE",
+    headers: { "apikey": SB_ANON, "Authorization": "Bearer " + tok }
+  });
+  if (r.ok) { showToast("Candidatura retirada."); loadMyApplications(); }
+  else showToast("Erro ao retirar.", true);
+}
 
 // ── FAQ TOGGLE ────────────────────────────────────────────────────────────
 function toggleFaq(el) {
