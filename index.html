@@ -2711,14 +2711,14 @@ async function _acFetch(val) {
   var box = document.getElementById("f-address-suggestions");
   try {
     // Photon is an open geocoder based on OSM with no CORS issues
-    var url = "https://photon.komoot.io/api/?q=" + encodeURIComponent(val + " Portugal") + "&limit=5&lang=pt&bbox=-9.5,36.9,-6.2,42.2";
+    var url = "https://photon.komoot.io/api/?q=" + encodeURIComponent(val + " Portugal") + "&limit=5&lang=pt";
     var r = await fetch(url);
     var data = await r.json();
     var features = (data && data.features) ? data.features : [];
 
-    // Filter to Portugal only
     features = features.filter(function(f) {
-      return f.properties && f.properties.country === "Portugal";
+      var p = f.properties || {};
+      return p.countrycode === "PT" || p.country === "Portugal" || p.country === "Portugália";
     });
 
     if (!features.length) {
